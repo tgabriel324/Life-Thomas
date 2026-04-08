@@ -26,6 +26,8 @@ import { cn } from '../lib/utils';
 import { Project, Todo } from '../types';
 import { SortableTodoItem } from '../components/todo/SortableTodoItem';
 
+import { api } from '../services/api';
+
 export function ProjectDetail() {
   const { id } = useParams();
   const [project, setProject] = useState<Project | null>(null);
@@ -39,16 +41,16 @@ export function ProjectDetail() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [pRes, tRes] = await Promise.all([
-        fetch('/api/projects'),
-        fetch(`/api/todos?projectId=${id}`)
+      const [projectsData, todosData] = await Promise.all([
+        api.projects.getAll(),
+        api.todos.getAll(id)
       ]);
-      const projects = await pRes.json();
-      const projectData = projects.find((p: Project) => p.id === Number(id));
-      setProject(projectData);
-      setTodos(await tRes.json());
+      const projectData = projectsData.find((p: Project) => p.id === Number(id));
+      setProject(projectData || null);
+      setTodos(Array.isArray(todosData) ? todosData : []);
     } catch (error) {
       console.error('Failed to fetch project data:', error);
+      setTodos([]);
     } finally {
       setIsLoading(false);
     }
@@ -71,16 +73,11 @@ export function ProjectDetail() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/todos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: inputValue.trim(), 
-          project_id: Number(id),
-          due_date: selectedDate || null
-        }),
+      const newTodo = await api.todos.create({ 
+        text: inputValue.trim(), 
+        project_id: Number(id),
+        due_date: selectedDate || null
       });
-      const newTodo = await response.json();
       setTodos([...todos, newTodo]);
       setInputValue('');
     } catch (error) {
@@ -92,12 +89,7 @@ export function ProjectDetail() {
 
   const handleToggleTodo = async (todoId: number, completed: boolean) => {
     try {
-      const response = await fetch(`/api/todos/${todoId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed }),
-      });
-      const updatedTodo = await response.json();
+      const updatedTodo = await api.todos.update(todoId, { completed: completed ? 1 : 0 });
       setTodos(todos.map(t => t.id === todoId ? updatedTodo : t));
     } catch (error) {
       console.error('Failed to toggle todo:', error);
@@ -106,12 +98,7 @@ export function ProjectDetail() {
 
   const handleUpdateTodo = async (todoId: number, updates: Partial<Todo>) => {
     try {
-      const response = await fetch(`/api/todos/${todoId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      const updatedTodo = await response.json();
+      const updatedTodo = await api.todos.update(todoId, updates);
       setTodos(todos.map(t => t.id === todoId ? updatedTodo : t));
     } catch (error) {
       console.error('Failed to update todo:', error);
@@ -120,7 +107,7 @@ export function ProjectDetail() {
 
   const handleDeleteTodo = async (todoId: number) => {
     try {
-      await fetch(`/api/todos/${todoId}`, { method: 'DELETE' });
+      await api.todos.delete(todoId);
       setTodos(todos.filter(t => t.id !== todoId));
     } catch (error) {
       console.error('Failed to delete todo:', error);
@@ -141,11 +128,7 @@ export function ProjectDetail() {
       setTodos(newTodos);
 
       try {
-        await fetch('/api/todos/reorder', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: newTodos.map(t => t.id) }),
-        });
+        await api.todos.reorder(newTodos.map(t => t.id));
       } catch (error) {
         console.error('Failed to save order:', error);
         fetchData();

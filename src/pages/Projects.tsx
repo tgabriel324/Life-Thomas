@@ -4,6 +4,8 @@ import { Plus, Trash2, Loader2, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Project } from '../types';
 
+import { api } from '../services/api';
+
 export function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -13,11 +15,11 @@ export function Projects() {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('/api/projects');
-      const data = await response.json();
-      setProjects(data);
+      const data = await api.projects.getAll();
+      setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch projects:', error);
+      setProjects([]);
     } finally {
       setIsLoading(false);
     }
@@ -32,15 +34,10 @@ export function Projects() {
     if (!newName.trim()) return;
 
     try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: newName.trim(),
-          color: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444'][Math.floor(Math.random() * 5)]
-        }),
+      const newProject = await api.projects.create({ 
+        name: newName.trim(),
+        color: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444'][Math.floor(Math.random() * 5)]
       });
-      const newProject = await response.json();
       setProjects([...projects, newProject]);
       setNewName('');
       setIsAdding(false);
@@ -53,7 +50,7 @@ export function Projects() {
     e.preventDefault();
     e.stopPropagation();
     try {
-      await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+      await api.projects.delete(id);
       setProjects(projects.filter(p => p.id !== id));
     } catch (error) {
       console.error('Failed to delete project:', error);

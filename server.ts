@@ -16,6 +16,20 @@ async function startServer() {
 
   app.use(express.json());
 
+  // --- Health Check ---
+  app.get('/api/health', async (req, res) => {
+    try {
+      await db.execute(sql`SELECT 1`);
+      res.json({ status: 'ok', database: 'connected' });
+    } catch (error) {
+      res.status(500).json({ 
+        status: 'error', 
+        database: 'disconnected', 
+        message: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
   // --- Project Routes ---
   app.get('/api/projects', async (req, res) => {
     try {

@@ -44,10 +44,12 @@ export function Checklist() {
         api.todos.getAll(),
         api.projects.getAll()
       ]);
-      setTodos(todosData);
-      setProjects(projectsData);
+      setTodos(Array.isArray(todosData) ? todosData : []);
+      setProjects(Array.isArray(projectsData) ? projectsData : []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      setTodos([]);
+      setProjects([]);
     } finally {
       setIsLoading(false);
     }

@@ -3,6 +3,8 @@ import { Loader2 } from 'lucide-react';
 import { Todo, Project } from '../types';
 import { SortableTodoItem } from '../components/todo/SortableTodoItem';
 
+import { api } from '../services/api';
+
 export function Hoje() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -10,14 +12,16 @@ export function Hoje() {
 
   const fetchData = async () => {
     try {
-      const [tRes, pRes] = await Promise.all([
-        fetch('/api/todos'),
-        fetch('/api/projects')
+      const [todosData, projectsData] = await Promise.all([
+        api.todos.getAll(),
+        api.projects.getAll()
       ]);
-      setTodos(await tRes.json());
-      setProjects(await pRes.json());
+      setTodos(Array.isArray(todosData) ? todosData : []);
+      setProjects(Array.isArray(projectsData) ? projectsData : []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      setTodos([]);
+      setProjects([]);
     } finally {
       setIsLoading(false);
     }
@@ -29,12 +33,7 @@ export function Hoje() {
 
   const handleToggleTodo = async (id: number, completed: boolean) => {
     try {
-      const response = await fetch(`/api/todos/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed }),
-      });
-      const updatedTodo = await response.json();
+      const updatedTodo = await api.todos.update(id, { completed: completed ? 1 : 0 });
       setTodos(todos.map(t => t.id === id ? updatedTodo : t));
     } catch (error) {
       console.error('Failed to toggle todo:', error);
@@ -43,12 +42,7 @@ export function Hoje() {
 
   const handleUpdateTodo = async (id: number, updates: Partial<Todo>) => {
     try {
-      const response = await fetch(`/api/todos/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      const updatedTodo = await response.json();
+      const updatedTodo = await api.todos.update(id, updates);
       setTodos(todos.map(t => t.id === id ? updatedTodo : t));
     } catch (error) {
       console.error('Failed to update todo:', error);
@@ -57,7 +51,7 @@ export function Hoje() {
 
   const handleDeleteTodo = async (id: number) => {
     try {
-      await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+      await api.todos.delete(id);
       setTodos(todos.filter(t => t.id !== id));
     } catch (error) {
       console.error('Failed to delete todo:', error);
