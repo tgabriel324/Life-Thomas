@@ -2,7 +2,10 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import Database from 'better-sqlite3';
+import { db } from './src/db/index';
+import { projects, todos } from './src/db/schema';
+import { eq, asc, desc, sql } from 'drizzle-orm';
+import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,166 +14,152 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Database setup
-  const db = new Database('todos.db');
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      color TEXT DEFAULT '#000000'
-    );
-
-    CREATE TABLE IF NOT EXISTS todos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      text TEXT NOT NULL,
-      completed INTEGER DEFAULT 0,
-      position INTEGER NOT NULL,
-      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
-      due_date TEXT
-    );
-  `);
-
-  // Migration: Add project_id and due_date to todos if they don't exist
-  try {
-    db.exec('ALTER TABLE todos ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL');
-  } catch (e) {}
-  try {
-    db.exec('ALTER TABLE todos ADD COLUMN due_date TEXT');
-  } catch (e) {}
-
   app.use(express.json());
 
   // --- Project Routes ---
-  app.get('/api/projects', (req, res) => {
+  app.get('/api/projects', async (req, res) => {
     try {
-      const projects = db.prepare('SELECT * FROM projects').all();
-      res.json(projects);
+      const allProjects = await db.select().from(projects);
+      res.json(allProjects);
     } catch (error) {
+      console.error('Failed to fetch projects:', error);
       res.status(500).json({ error: 'Failed to fetch projects' });
     }
   });
 
-  app.post('/api/projects', (req, res) => {
+  app.post('/api/projects', async (req, res) => {
     const { name, description, color } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
     try {
-      const info = db.prepare('INSERT INTO projects (name, description, color) VALUES (?, ?, ?)').run(name, description || '', color || '#000000');
-      const newProject = db.prepare('SELECT * FROM projects WHERE id = ?').get(info.lastInsertRowid);
+      const [newProject] = await db.insert(projects).values({
+        name,
+        description: description || '',
+        color: color || '#000000',
+      }).returning();
       res.status(201).json(newProject);
     } catch (error) {
+      console.error('Failed to create project:', error);
       res.status(500).json({ error: 'Failed to create project' });
     }
   });
 
-  app.delete('/api/projects/:id', (req, res) => {
+  app.delete('/api/projects/:id', async (req, res) => {
     const { id } = req.params;
     try {
-      db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+      await db.delete(projects).where(eq(projects.id, Number(id)));
       res.status(204).send();
     } catch (error) {
+      console.error('Failed to delete project:', error);
       res.status(500).json({ error: 'Failed to delete project' });
     }
   });
 
-  // API Routes
-  app.get('/api/todos', (req, res) => {
+  // --- Todo Routes ---
+  app.get('/api/todos', async (req, res) => {
     try {
       const { projectId } = req.query;
-      let todos;
+      let query = db.select().from(todos).orderBy(asc(todos.position));
+      
       if (projectId) {
-        todos = db.prepare('SELECT * FROM todos WHERE project_id = ? ORDER BY position ASC').all(projectId);
-      } else {
-        todos = db.prepare('SELECT * FROM todos ORDER BY position ASC').all();
+        const allTodos = await db.select().from(todos)
+          .where(eq(todos.projectId, Number(projectId)))
+          .orderBy(asc(todos.position));
+        return res.json(allTodos);
       }
-      res.json(todos);
+      
+      const allTodos = await query;
+      res.json(allTodos);
     } catch (error) {
+      console.error('Failed to fetch todos:', error);
       res.status(500).json({ error: 'Failed to fetch todos' });
     }
   });
 
-  app.post('/api/todos', (req, res) => {
+  app.post('/api/todos', async (req, res) => {
     const { text, project_id, due_date } = req.body;
     if (!text) return res.status(400).json({ error: 'Text is required' });
 
     try {
       // Get max position
-      const maxPosResult = db.prepare('SELECT MAX(position) as maxPos FROM todos').get() as { maxPos: number | null };
-      const nextPos = (maxPosResult.maxPos ?? -1) + 1;
+      const [maxPosResult] = await db.select({ 
+        maxPos: sql<number>`max(${todos.position})` 
+      }).from(todos);
+      
+      const nextPos = (maxPosResult?.maxPos ?? -1) + 1;
 
-      const info = db.prepare('INSERT INTO todos (text, position, project_id, due_date) VALUES (?, ?, ?, ?)').run(text, nextPos, project_id || null, due_date || null);
-      const newTodo = db.prepare('SELECT * FROM todos WHERE id = ?').get(info.lastInsertRowid);
+      const [newTodo] = await db.insert(todos).values({
+        text,
+        position: nextPos,
+        projectId: project_id || null,
+        dueDate: due_date || null,
+        completed: false
+      }).returning();
+      
       res.status(201).json(newTodo);
     } catch (error) {
+      console.error('Failed to create todo:', error);
       res.status(500).json({ error: 'Failed to create todo' });
     }
   });
 
-  app.patch('/api/todos/:id', (req, res) => {
+  app.patch('/api/todos/:id', async (req, res) => {
     const { id } = req.params;
     const { text, completed, project_id, due_date } = req.body;
 
     try {
-      const updates: string[] = [];
-      const params: any[] = [];
+      const updates: any = {};
+      if (text !== undefined) updates.text = text;
+      if (completed !== undefined) updates.completed = !!completed;
+      if (project_id !== undefined) updates.projectId = project_id;
+      if (due_date !== undefined) updates.dueDate = due_date;
 
-      if (text !== undefined) {
-        updates.push('text = ?');
-        params.push(text);
-      }
-      if (completed !== undefined) {
-        updates.push('completed = ?');
-        params.push(completed ? 1 : 0);
-      }
-      if (project_id !== undefined) {
-        updates.push('project_id = ?');
-        params.push(project_id);
-      }
-      if (due_date !== undefined) {
-        updates.push('due_date = ?');
-        params.push(due_date);
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: 'No fields to update' });
       }
 
-      if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
-
-      params.push(id);
-      const result = db.prepare(`UPDATE todos SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+      const [updatedTodo] = await db.update(todos)
+        .set(updates)
+        .where(eq(todos.id, Number(id)))
+        .returning();
       
-      if (result.changes === 0) return res.status(404).json({ error: 'Todo not found' });
+      if (!updatedTodo) return res.status(404).json({ error: 'Todo not found' });
       
-      const updatedTodo = db.prepare('SELECT * FROM todos WHERE id = ?').get(id);
       res.json(updatedTodo);
     } catch (error) {
+      console.error('Failed to update todo:', error);
       res.status(500).json({ error: 'Failed to update todo' });
     }
   });
 
-  app.delete('/api/todos/:id', (req, res) => {
+  app.delete('/api/todos/:id', async (req, res) => {
     const { id } = req.params;
     try {
-      const result = db.prepare('DELETE FROM todos WHERE id = ?').run(id);
-      if (result.changes === 0) return res.status(404).json({ error: 'Todo not found' });
+      const result = await db.delete(todos).where(eq(todos.id, Number(id))).returning();
+      if (result.length === 0) return res.status(404).json({ error: 'Todo not found' });
       res.status(204).send();
     } catch (error) {
+      console.error('Failed to delete todo:', error);
       res.status(500).json({ error: 'Failed to delete todo' });
     }
   });
 
-  app.put('/api/todos/reorder', (req, res) => {
-    const { ids } = req.body; // Array of IDs in new order
+  app.put('/api/todos/reorder', async (req, res) => {
+    const { ids } = req.body;
     if (!Array.isArray(ids)) return res.status(400).json({ error: 'IDs array required' });
 
     try {
-      const updateStmt = db.prepare('UPDATE todos SET position = ? WHERE id = ?');
-      const transaction = db.transaction((todoIds) => {
-        for (let i = 0; i < todoIds.length; i++) {
-          updateStmt.run(i, todoIds[i]);
+      // In PostgreSQL with Drizzle, we can use a transaction for reordering
+      await db.transaction(async (tx) => {
+        for (let i = 0; i < ids.length; i++) {
+          await tx.update(todos)
+            .set({ position: i })
+            .where(eq(todos.id, ids[i]));
         }
       });
-      transaction(ids);
       res.json({ success: true });
     } catch (error) {
+      console.error('Failed to reorder todos:', error);
       res.status(500).json({ error: 'Failed to reorder todos' });
     }
   });
