@@ -57,6 +57,18 @@ export function Projects() {
     }
   };
 
+  const handleFixDatabase = async () => {
+    try {
+      setIsLoading(true);
+      await fetch('/api/setup-db', { method: 'POST' });
+      await fetchProjects();
+    } catch (error) {
+      console.error('Failed to fix database:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6">
       <div className="flex items-center justify-between mb-8">
@@ -64,13 +76,21 @@ export function Projects() {
           <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Projetos</h1>
           <p className="text-zinc-500 text-sm mt-1">Gerencie seus grandes objetivos.</p>
         </div>
-        <button 
-          onClick={() => setIsAdding(true)}
-          className="vercel-button-primary flex items-center gap-2"
-        >
-          <Plus size={16} />
-          Novo Projeto
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={handleFixDatabase}
+            className="vercel-button-secondary text-[10px] py-1"
+          >
+            Fix DB
+          </button>
+          <button 
+            onClick={() => setIsAdding(true)}
+            className="vercel-button-primary flex items-center gap-2"
+          >
+            <Plus size={16} />
+            Novo Projeto
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>

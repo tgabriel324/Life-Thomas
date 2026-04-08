@@ -5,7 +5,8 @@ const API_BASE = '/api';
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || `API request failed with status ${res.status}`);
+    const detail = errorData.details ? ` (${errorData.details})` : '';
+    throw new Error(errorData.error ? `${errorData.error}${detail}` : `API request failed with status ${res.status}`);
   }
   return res.json();
 };

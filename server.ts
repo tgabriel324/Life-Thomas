@@ -2,9 +2,10 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { db } from './src/db/index.ts';
+import { db, pool } from './src/db/index.ts';
 import { projects, todos } from './src/db/schema.ts';
 import { eq, asc, desc, sql } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,6 +14,23 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  console.log('🚀 Server starting...');
+  if (!process.env.DATABASE_URL) {
+    console.error('❌ DATABASE_URL is missing from environment variables!');
+  } else {
+    console.log('🔗 DATABASE_URL is present.');
+  }
+
+  // --- Auto-Migration ---
+  try {
+    const migrationsPath = path.join(process.cwd(), 'drizzle');
+    console.log(`🔄 Running database migrations from: ${migrationsPath}`);
+    await migrate(db, { migrationsFolder: migrationsPath });
+    console.log('✅ Migrations completed successfully');
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+  }
 
   app.use(express.json());
 
@@ -25,8 +43,38 @@ async function startServer() {
       res.status(500).json({ 
         status: 'error', 
         database: 'disconnected', 
-        message: error instanceof Error ? error.message : String(error) 
+        message: error instanceof Error ? error.message : String(error),
+        hint: 'Check if DATABASE_URL is correct and SSL is enabled if required.'
       });
+    }
+  });
+
+  // --- Setup Database Route ---
+  app.post('/api/setup-db', async (req, res) => {
+    try {
+      console.log('🛠️ Manually triggering database setup...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "projects" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "name" text NOT NULL,
+          "description" text,
+          "color" text DEFAULT '#000000',
+          "created_at" timestamp DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS "todos" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "text" text NOT NULL,
+          "completed" boolean DEFAULT false,
+          "position" integer NOT NULL,
+          "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
+          "due_date" text,
+          "created_at" timestamp DEFAULT now()
+        );
+      `);
+      res.json({ success: true, message: 'Database tables ensured.' });
+    } catch (error) {
+      console.error('❌ Manual setup failed:', error);
+      res.status(500).json({ error: 'Manual setup failed', details: String(error) });
     }
   });
 
@@ -36,8 +84,40 @@ async function startServer() {
       const allProjects = await db.select().from(projects);
       res.json(allProjects);
     } catch (error) {
-      console.error('Failed to fetch projects:', error);
-      res.status(500).json({ error: 'Failed to fetch projects' });
+      const msg = error instanceof Error ? error.message : String(error);
+      
+      // Emergency Fallback: If table doesn't exist, try to create it manually
+      if (msg.includes('does not exist') || msg.includes('Failed query')) {
+        console.log('⚠️ Tables might be missing. Attempting emergency creation...');
+        try {
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS "projects" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "name" text NOT NULL,
+              "description" text,
+              "color" text DEFAULT '#000000',
+              "created_at" timestamp DEFAULT now()
+            );
+            CREATE TABLE IF NOT EXISTS "todos" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "text" text NOT NULL,
+              "completed" boolean DEFAULT false,
+              "position" integer NOT NULL,
+              "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
+              "due_date" text,
+              "created_at" timestamp DEFAULT now()
+            );
+          `);
+          console.log('✅ Emergency tables created. Retrying query...');
+          const retryProjects = await db.select().from(projects);
+          return res.json(retryProjects);
+        } catch (innerError) {
+          console.error('❌ Emergency creation failed:', innerError);
+        }
+      }
+
+      console.error('Failed to fetch projects:', msg);
+      res.status(500).json({ error: 'Failed to fetch projects', details: msg });
     }
   });
 
@@ -53,8 +133,25 @@ async function startServer() {
       }).returning();
       res.status(201).json(newProject);
     } catch (error) {
-      console.error('Failed to create project:', error);
-      res.status(500).json({ error: 'Failed to create project' });
+      const msg = error instanceof Error ? error.message : String(error);
+      
+      // Fallback for POST
+      if (msg.includes('does not exist') || msg.includes('Failed query')) {
+        try {
+          await pool.query('CREATE TABLE IF NOT EXISTS "projects" ("id" serial PRIMARY KEY, "name" text NOT NULL, "description" text, "color" text, "created_at" timestamp DEFAULT now())');
+          const [retryProject] = await db.insert(projects).values({
+            name,
+            description: description || '',
+            color: color || '#000000',
+          }).returning();
+          return res.status(201).json(retryProject);
+        } catch (inner) {
+          console.error('❌ Emergency POST creation failed:', inner);
+        }
+      }
+
+      console.error('Failed to create project:', msg);
+      res.status(500).json({ error: 'Failed to create project', details: msg });
     }
   });
 
@@ -85,8 +182,39 @@ async function startServer() {
       const allTodos = await query;
       res.json(allTodos);
     } catch (error) {
-      console.error('Failed to fetch todos:', error);
-      res.status(500).json({ error: 'Failed to fetch todos' });
+      const msg = error instanceof Error ? error.message : String(error);
+      
+      // Emergency Fallback
+      if (msg.includes('does not exist') || msg.includes('Failed query')) {
+        console.log('⚠️ Tables might be missing in todos route. Attempting emergency creation...');
+        try {
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS "projects" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "name" text NOT NULL,
+              "description" text,
+              "color" text DEFAULT '#000000',
+              "created_at" timestamp DEFAULT now()
+            );
+            CREATE TABLE IF NOT EXISTS "todos" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "text" text NOT NULL,
+              "completed" boolean DEFAULT false,
+              "position" integer NOT NULL,
+              "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
+              "due_date" text,
+              "created_at" timestamp DEFAULT now()
+            );
+          `);
+          const retryTodos = await db.select().from(todos).orderBy(asc(todos.position));
+          return res.json(retryTodos);
+        } catch (innerError) {
+          console.error('❌ Emergency creation failed:', innerError);
+        }
+      }
+
+      console.error('Failed to fetch todos:', msg);
+      res.status(500).json({ error: 'Failed to fetch todos', details: msg });
     }
   });
 
@@ -112,8 +240,9 @@ async function startServer() {
       
       res.status(201).json(newTodo);
     } catch (error) {
-      console.error('Failed to create todo:', error);
-      res.status(500).json({ error: 'Failed to create todo' });
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error('Failed to create todo:', msg);
+      res.status(500).json({ error: 'Failed to create todo', details: msg });
     }
   });
 
