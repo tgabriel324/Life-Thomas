@@ -14,20 +14,76 @@ async function startServer() {
   // Database setup
   const db = new Database('todos.db');
   db.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      color TEXT DEFAULT '#000000'
+    );
+
     CREATE TABLE IF NOT EXISTS todos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       text TEXT NOT NULL,
       completed INTEGER DEFAULT 0,
-      position INTEGER NOT NULL
-    )
+      position INTEGER NOT NULL,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      due_date TEXT
+    );
   `);
 
+  // Migration: Add project_id and due_date to todos if they don't exist
+  try {
+    db.exec('ALTER TABLE todos ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE todos ADD COLUMN due_date TEXT');
+  } catch (e) {}
+
   app.use(express.json());
+
+  // --- Project Routes ---
+  app.get('/api/projects', (req, res) => {
+    try {
+      const projects = db.prepare('SELECT * FROM projects').all();
+      res.json(projects);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch projects' });
+    }
+  });
+
+  app.post('/api/projects', (req, res) => {
+    const { name, description, color } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+
+    try {
+      const info = db.prepare('INSERT INTO projects (name, description, color) VALUES (?, ?, ?)').run(name, description || '', color || '#000000');
+      const newProject = db.prepare('SELECT * FROM projects WHERE id = ?').get(info.lastInsertRowid);
+      res.status(201).json(newProject);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create project' });
+    }
+  });
+
+  app.delete('/api/projects/:id', (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete project' });
+    }
+  });
 
   // API Routes
   app.get('/api/todos', (req, res) => {
     try {
-      const todos = db.prepare('SELECT * FROM todos ORDER BY position ASC').all();
+      const { projectId } = req.query;
+      let todos;
+      if (projectId) {
+        todos = db.prepare('SELECT * FROM todos WHERE project_id = ? ORDER BY position ASC').all(projectId);
+      } else {
+        todos = db.prepare('SELECT * FROM todos ORDER BY position ASC').all();
+      }
       res.json(todos);
     } catch (error) {
       res.status(500).json({ error: 'Failed to fetch todos' });
@@ -35,7 +91,7 @@ async function startServer() {
   });
 
   app.post('/api/todos', (req, res) => {
-    const { text } = req.body;
+    const { text, project_id, due_date } = req.body;
     if (!text) return res.status(400).json({ error: 'Text is required' });
 
     try {
@@ -43,7 +99,7 @@ async function startServer() {
       const maxPosResult = db.prepare('SELECT MAX(position) as maxPos FROM todos').get() as { maxPos: number | null };
       const nextPos = (maxPosResult.maxPos ?? -1) + 1;
 
-      const info = db.prepare('INSERT INTO todos (text, position) VALUES (?, ?)').run(text, nextPos);
+      const info = db.prepare('INSERT INTO todos (text, position, project_id, due_date) VALUES (?, ?, ?, ?)').run(text, nextPos, project_id || null, due_date || null);
       const newTodo = db.prepare('SELECT * FROM todos WHERE id = ?').get(info.lastInsertRowid);
       res.status(201).json(newTodo);
     } catch (error) {
@@ -53,7 +109,7 @@ async function startServer() {
 
   app.patch('/api/todos/:id', (req, res) => {
     const { id } = req.params;
-    const { text, completed } = req.body;
+    const { text, completed, project_id, due_date } = req.body;
 
     try {
       const updates: string[] = [];
@@ -66,6 +122,14 @@ async function startServer() {
       if (completed !== undefined) {
         updates.push('completed = ?');
         params.push(completed ? 1 : 0);
+      }
+      if (project_id !== undefined) {
+        updates.push('project_id = ?');
+        params.push(project_id);
+      }
+      if (due_date !== undefined) {
+        updates.push('due_date = ?');
+        params.push(due_date);
       }
 
       if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
