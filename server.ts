@@ -2,8 +2,8 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { db } from './src/db/index';
-import { projects, todos } from './src/db/schema';
+import { db } from './src/db/index.ts';
+import { projects, todos } from './src/db/schema.ts';
 import { eq, asc, desc, sql } from 'drizzle-orm';
 import 'dotenv/config';
 
