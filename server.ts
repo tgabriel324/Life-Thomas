@@ -53,6 +53,15 @@ async function startServer() {
   app.post('/api/setup-db', async (req, res) => {
     try {
       console.log('🛠️ Manually triggering database setup...');
+      
+      // Try to enable vector extension
+      try {
+        await pool.query('CREATE EXTENSION IF NOT EXISTS vector;');
+        console.log('✅ Vector extension ensured.');
+      } catch (e) {
+        console.warn('⚠️ Could not enable vector extension. Vector operations might fail.', e);
+      }
+
       await pool.query(`
         CREATE TABLE IF NOT EXISTS "projects" (
           "id" serial PRIMARY KEY NOT NULL,
@@ -70,8 +79,31 @@ async function startServer() {
           "due_date" text,
           "created_at" timestamp DEFAULT now()
         );
+        CREATE TABLE IF NOT EXISTS "agents" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "name" text NOT NULL,
+          "type" text NOT NULL,
+          "parent_id" integer,
+          "linked_id" integer,
+          "description" text,
+          "persona" text,
+          "scope" text,
+          "goals" text,
+          "instructions" text,
+          "status" text DEFAULT 'active',
+          "created_at" timestamp DEFAULT now(),
+          "updated_at" timestamp DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS "agent_memories" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "agent_id" integer REFERENCES "agents"("id") ON DELETE CASCADE,
+          "content" text NOT NULL,
+          "embedding" vector(1536),
+          "metadata" jsonb,
+          "created_at" timestamp DEFAULT now()
+        );
       `);
-      res.json({ success: true, message: 'Database tables ensured.' });
+      res.json({ success: true, message: 'Database tables and extensions ensured.' });
     } catch (error) {
       console.error('❌ Manual setup failed:', error);
       res.status(500).json({ error: 'Manual setup failed', details: String(error) });
@@ -131,6 +163,24 @@ async function startServer() {
         description: description || '',
         color: color || '#000000',
       }).returning();
+
+      // Create associated Project Agent
+      try {
+        const { agents: agentsTable } = await import('./src/db/schema.ts');
+        await db.insert(agentsTable).values({
+          name: `Agente ${name}`,
+          type: 'project',
+          linkedId: newProject.id,
+          description: `Especialista focado no projeto: ${name}.`,
+          persona: 'Gerente de projeto técnico, focado em prazos e qualidade de código.',
+          scope: `Gerenciamento e execução do projeto ${name}.`,
+          goals: `Garantir que o projeto ${name} seja concluído com excelência.`,
+          instructions: 'Analise as tarefas deste projeto e sugira otimizações constantes.',
+        });
+      } catch (agentError) {
+        console.error('Failed to create project agent:', agentError);
+      }
+
       res.status(201).json(newProject);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -158,11 +208,128 @@ async function startServer() {
   app.delete('/api/projects/:id', async (req, res) => {
     const { id } = req.params;
     try {
+      const { agents: agentsTable } = await import('./src/db/schema.ts');
+      
+      // Delete associated agents first
+      await db.delete(agentsTable).where(sql`${agentsTable.type} = 'project' AND ${agentsTable.linkedId} = ${Number(id)}`);
+      
       await db.delete(projects).where(eq(projects.id, Number(id)));
       res.status(204).send();
     } catch (error) {
       console.error('Failed to delete project:', error);
       res.status(500).json({ error: 'Failed to delete project' });
+    }
+  });
+
+  // --- Agent Routes ---
+  app.get('/api/agents', async (req, res) => {
+    try {
+      const { agents: agentsTable } = await import('./src/db/schema.ts');
+      const allAgents = await db.select().from(agentsTable);
+      res.json(allAgents);
+    } catch (error) {
+      console.error('Failed to fetch agents:', error);
+      res.status(500).json({ error: 'Failed to fetch agents' });
+    }
+  });
+
+  app.post('/api/agents/seed', async (req, res) => {
+    try {
+      const { agents: agentsTable } = await import('./src/db/schema.ts');
+      
+      // Check if Deus exists
+      const [deus] = await db.select().from(agentsTable).where(eq(agentsTable.type, 'system'));
+      
+      if (deus) {
+        return res.json({ message: 'System agent already exists', agent: deus });
+      }
+
+      const [newDeus] = await db.insert(agentsTable).values({
+        name: 'Life Thomas (Deus)',
+        type: 'system',
+        description: 'O agente macro que entende todo o sistema e a visão bilionária.',
+        persona: 'Estrategista de elite, mentor, focado em escala e visão de longo prazo.',
+        scope: 'Todo o sistema Life Thomas, integração de projetos e alinhamento de vida.',
+        goals: 'Transformar a vida do Thomas em um império bilionário através de organização e inteligência.',
+        instructions: 'Sempre considere o impacto de longo prazo. Priorize escala. Mantenha o alinhamento entre micro tarefas e macro objetivos.',
+      }).returning();
+
+      res.status(201).json(newDeus);
+    } catch (error) {
+      console.error('Failed to seed system agent:', error);
+      res.status(500).json({ error: 'Failed to seed system agent' });
+    }
+  });
+
+  app.post('/api/agents', async (req, res) => {
+    try {
+      const { agents: agentsTable } = await import('./src/db/schema.ts');
+      const newAgent = await db.insert(agentsTable).values(req.body).returning();
+      res.status(201).json(newAgent[0]);
+    } catch (error) {
+      console.error('Failed to create agent:', error);
+      res.status(500).json({ error: 'Failed to create agent' });
+    }
+  });
+
+  // --- Agent Memory & RAG Routes ---
+  app.post('/api/agents/:id/memories', async (req, res) => {
+    const { id } = req.params;
+    const { content, embedding, metadata } = req.body;
+    
+    try {
+      const { agentMemories: memoriesTable } = await import('./src/db/schema.ts');
+      
+      // Convert embedding array to postgres vector string format: [1,2,3]
+      const vectorStr = `[${embedding.join(',')}]`;
+      
+      const [newMemory] = await db.insert(memoriesTable).values({
+        agentId: Number(id),
+        content,
+        embedding: sql`${vectorStr}::vector`,
+        metadata: metadata || {},
+      }).returning();
+      
+      res.status(201).json(newMemory);
+    } catch (error) {
+      console.error('Failed to save agent memory:', error);
+      res.status(500).json({ error: 'Failed to save agent memory', details: String(error) });
+    }
+  });
+
+  app.post('/api/agents/search', async (req, res) => {
+    const { embedding, limit = 5, agentId } = req.body;
+    
+    if (!embedding || !Array.isArray(embedding)) {
+      return res.status(400).json({ error: 'Embedding array is required' });
+    }
+
+    try {
+      const { agentMemories: memoriesTable } = await import('./src/db/schema.ts');
+      const vectorStr = `[${embedding.join(',')}]`;
+      
+      // Cosine similarity search using pgvector operator <=> (distance)
+      // 1 - (embedding <=> vector) is similarity
+      let query = db.select({
+        id: memoriesTable.id,
+        content: memoriesTable.content,
+        metadata: memoriesTable.metadata,
+        similarity: sql<number>`1 - (${memoriesTable.embedding} <=> ${vectorStr}::vector)`
+      })
+      .from(memoriesTable);
+
+      if (agentId) {
+        query = query.where(eq(memoriesTable.agentId, Number(agentId))) as any;
+      }
+
+      const results = await query
+        .orderBy(sql`${memoriesTable.embedding} <=> ${vectorStr}::vector`)
+        .limit(limit);
+
+      res.json(results);
+    } catch (error) {
+      console.error('Failed to search agent memories:', error);
+      res.status(500).json({ error: 'Failed to search agent memories', details: String(error) });
     }
   });
 
@@ -238,6 +405,23 @@ async function startServer() {
         completed: false
       }).returning();
       
+      // Create associated Task Agent
+      try {
+        const { agents: agentsTable } = await import('./src/db/schema.ts');
+        await db.insert(agentsTable).values({
+          name: `Executor: ${text.substring(0, 20)}${text.length > 20 ? '...' : ''}`,
+          type: 'task',
+          linkedId: newTodo.id,
+          description: `Especialista focado na execução da tarefa: ${text}.`,
+          persona: 'Executor ágil, focado em micro-decisões e eficiência técnica.',
+          scope: `Execução da tarefa ID ${newTodo.id}.`,
+          goals: 'Completar a tarefa da forma mais eficiente possível.',
+          instructions: 'Foque nos detalhes técnicos e impeça qualquer bloqueio na execução.',
+        });
+      } catch (agentError) {
+        console.error('Failed to create task agent:', agentError);
+      }
+
       res.status(201).json(newTodo);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -278,6 +462,11 @@ async function startServer() {
   app.delete('/api/todos/:id', async (req, res) => {
     const { id } = req.params;
     try {
+      const { agents: agentsTable } = await import('./src/db/schema.ts');
+      
+      // Delete associated task agent
+      await db.delete(agentsTable).where(sql`${agentsTable.type} = 'task' AND ${agentsTable.linkedId} = ${Number(id)}`);
+      
       const result = await db.delete(todos).where(eq(todos.id, Number(id))).returning();
       if (result.length === 0) return res.status(404).json({ error: 'Todo not found' });
       res.status(204).send();

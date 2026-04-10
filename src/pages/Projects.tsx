@@ -5,8 +5,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Project } from '../types';
 
 import { api } from '../services/api';
+import { useAgentStore } from '../store/useAgentStore';
 
 export function Projects() {
+  const { switchContext, notifyChange } = useAgentStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -27,7 +29,8 @@ export function Projects() {
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+    switchContext('system');
+  }, [switchContext]);
 
   const handleAddProject = async (e: FormEvent) => {
     e.preventDefault();
@@ -41,6 +44,7 @@ export function Projects() {
       setProjects([...projects, newProject]);
       setNewName('');
       setIsAdding(false);
+      notifyChange(`Novo projeto "${newProject.name}" detectado. Consciência sincronizada.`);
     } catch (error) {
       console.error('Failed to add project:', error);
     }
@@ -51,7 +55,11 @@ export function Projects() {
     e.stopPropagation();
     try {
       await api.projects.delete(id);
+      const deletedProject = projects.find(p => p.id === id);
       setProjects(projects.filter(p => p.id !== id));
+      if (deletedProject) {
+        notifyChange(`Projeto "${deletedProject.name}" removido. Reajustando escopo.`);
+      }
     } catch (error) {
       console.error('Failed to delete project:', error);
     }

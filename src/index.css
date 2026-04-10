@@ -1,13 +1,45 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Outfit", sans-serif;
+
+  --shadow-elite: 0 20px 50px -12px rgba(0, 0, 0, 0.5);
+  --shadow-glow-indigo: 0 0 20px rgba(99, 102, 241, 0.2);
+  --shadow-glow-emerald: 0 0 20px rgba(16, 185, 129, 0.2);
 }
 
 @layer base {
   body {
     @apply bg-white text-zinc-900 font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .glass-morphism {
+    @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-elite;
+  }
+  
+  .glass-morphism-dark {
+    @apply bg-zinc-950/70 backdrop-blur-2xl border border-zinc-800/50 shadow-2xl;
+  }
+
+  .glow-indigo {
+    @apply shadow-[0_0_30px_rgba(99,102,241,0.3)];
+  }
+
+  .glow-emerald {
+    @apply shadow-[0_0_30px_rgba(16,185,129,0.3)];
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-zinc-900 to-zinc-500;
+  }
+
+  .text-gradient-indigo {
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-indigo-400 to-indigo-600;
   }
 }
 

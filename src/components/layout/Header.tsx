@@ -55,6 +55,15 @@ export function Header() {
             >
               Projetos
             </Link>
+            <Link 
+              to="/agents" 
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                location.pathname.startsWith('/agents') ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+              )}
+            >
+              Agentes
+            </Link>
           </nav>
         </div>
 

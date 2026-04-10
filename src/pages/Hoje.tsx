@@ -4,8 +4,10 @@ import { Todo, Project } from '../types';
 import { SortableTodoItem } from '../components/todo/SortableTodoItem';
 
 import { api } from '../services/api';
+import { useAgentStore } from '../store/useAgentStore';
 
 export function Hoje() {
+  const { notifyChange } = useAgentStore();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,7 +54,11 @@ export function Hoje() {
   const handleDeleteTodo = async (id: number) => {
     try {
       await api.todos.delete(id);
+      const deletedTodo = todos.find(t => t.id === id);
       setTodos(todos.filter(t => t.id !== id));
+      if (deletedTodo) {
+        notifyChange(`Tarefa "${deletedTodo.text}" arquivada. Consciência sincronizada.`);
+      }
     } catch (error) {
       console.error('Failed to delete todo:', error);
     }

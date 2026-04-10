@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, CheckSquare, FolderKanban, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import { useAgentStore } from '../store/useAgentStore';
 
 export function Dashboard() {
+  const { switchContext } = useAgentStore();
+
+  useEffect(() => {
+    switchContext('system');
+  }, [switchContext]);
+
   const cards = [
     { 
       id: 'hoje', 

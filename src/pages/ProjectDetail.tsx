@@ -27,9 +27,11 @@ import { Project, Todo } from '../types';
 import { SortableTodoItem } from '../components/todo/SortableTodoItem';
 
 import { api } from '../services/api';
+import { useAgentStore } from '../store/useAgentStore';
 
 export function ProjectDetail() {
   const { id } = useParams();
+  const { switchContext, notifyChange } = useAgentStore();
   const [project, setProject] = useState<Project | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,13 +50,18 @@ export function ProjectDetail() {
       const projectData = projectsData.find((p: Project) => p.id === Number(id));
       setProject(projectData || null);
       setTodos(Array.isArray(todosData) ? todosData : []);
+      
+      // Switch agent context to this project
+      if (id) {
+        switchContext('project', Number(id));
+      }
     } catch (error) {
       console.error('Failed to fetch project data:', error);
       setTodos([]);
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, switchContext]);
 
   useEffect(() => {
     fetchData();
@@ -80,6 +87,7 @@ export function ProjectDetail() {
       });
       setTodos([...todos, newTodo]);
       setInputValue('');
+      notifyChange(`Nova tarefa "${newTodo.text}" adicionada ao projeto ${project?.name}.`);
     } catch (error) {
       console.error('Failed to add todo:', error);
     } finally {
@@ -108,7 +116,11 @@ export function ProjectDetail() {
   const handleDeleteTodo = async (todoId: number) => {
     try {
       await api.todos.delete(todoId);
+      const deletedTodo = todos.find(t => t.id === todoId);
       setTodos(todos.filter(t => t.id !== todoId));
+      if (deletedTodo) {
+        notifyChange(`Tarefa "${deletedTodo.text}" removida. Consciência atualizada.`);
+      }
     } catch (error) {
       console.error('Failed to delete todo:', error);
     }

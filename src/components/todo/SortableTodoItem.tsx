@@ -12,6 +12,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '../../lib/utils';
 import { Todo, Project } from '../../types';
+import { useAgentStore } from '../../store/useAgentStore';
 
 interface SortableTodoItemProps {
   key?: React.Key;
@@ -29,6 +30,7 @@ export function SortableTodoItem({
   onUpdate,
   projects = []
 }: SortableTodoItemProps) {
+  const { switchContext } = useAgentStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(todo.text);
   const [editDate, setEditDate] = useState(todo.due_date || '');
@@ -49,6 +51,11 @@ export function SortableTodoItem({
   };
 
   const project = projects.find(p => p.id === todo.project_id);
+
+  const handleStartEdit = () => {
+    setIsEditing(true);
+    switchContext('task', todo.id);
+  };
 
   const handleSave = async () => {
     await onUpdate(todo.id, {
@@ -145,7 +152,7 @@ export function SortableTodoItem({
         ) : (
           <div 
             className="cursor-pointer" 
-            onClick={() => setIsEditing(true)}
+            onClick={handleStartEdit}
           >
             <span className={cn(
               "text-sm transition-all truncate block",
@@ -194,7 +201,7 @@ export function SortableTodoItem({
         ) : (
           <>
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={handleStartEdit}
               className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded transition-all"
               title="Editar"
             >
