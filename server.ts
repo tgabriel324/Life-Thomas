@@ -228,8 +228,48 @@ async function startServer() {
       const allAgents = await db.select().from(agentsTable);
       res.json(allAgents);
     } catch (error) {
-      console.error('Failed to fetch agents:', error);
-      res.status(500).json({ error: 'Failed to fetch agents' });
+      const msg = error instanceof Error ? error.message : String(error);
+      
+      if (msg.includes('does not exist') || msg.includes('Failed query')) {
+        console.log('⚠️ Agents table might be missing. Attempting emergency creation...');
+        try {
+          await pool.query('CREATE EXTENSION IF NOT EXISTS vector;');
+          await pool.query(`
+            CREATE TABLE IF NOT EXISTS "agents" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "name" text NOT NULL,
+              "type" text NOT NULL,
+              "parent_id" integer,
+              "linked_id" integer,
+              "description" text,
+              "persona" text,
+              "scope" text,
+              "goals" text,
+              "instructions" text,
+              "status" text DEFAULT 'active',
+              "created_at" timestamp DEFAULT now(),
+              "updated_at" timestamp DEFAULT now()
+            );
+            CREATE TABLE IF NOT EXISTS "agent_memories" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "agent_id" integer REFERENCES "agents"("id") ON DELETE CASCADE,
+              "content" text NOT NULL,
+              "embedding" vector(1536),
+              "metadata" jsonb,
+              "created_at" timestamp DEFAULT now()
+            );
+          `);
+          console.log('✅ Emergency agents tables created. Retrying query...');
+          const { agents: agentsTableRetry } = await import('./src/db/schema.ts');
+          const retryAgents = await db.select().from(agentsTableRetry);
+          return res.json(retryAgents);
+        } catch (innerError) {
+          console.error('❌ Emergency agents creation failed:', innerError);
+        }
+      }
+
+      console.error('Failed to fetch agents:', msg);
+      res.status(500).json({ error: 'Failed to fetch agents', details: msg });
     }
   });
 

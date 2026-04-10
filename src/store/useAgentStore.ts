@@ -43,11 +43,12 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     try {
       const response = await fetch('/api/agents');
       const data = await response.json();
-      set({ agents: data });
-      if (data.length > 0 && !get().activeAgent) {
+      const agentsList = Array.isArray(data) ? data : [];
+      set({ agents: agentsList });
+      if (agentsList.length > 0 && !get().activeAgent) {
         // Default to Deus (system agent)
-        const deus = data.find((a: Agent) => a.type === 'system');
-        set({ activeAgent: deus || data[0] });
+        const deus = agentsList.find((a: Agent) => a.type === 'system');
+        set({ activeAgent: deus || agentsList[0] });
       }
     } catch (error) {
       console.error('Failed to fetch agents:', error);
