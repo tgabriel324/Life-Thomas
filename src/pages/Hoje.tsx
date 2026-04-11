@@ -73,16 +73,16 @@ export function Hoje() {
   });
 
   return (
-    <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6">
-      <header className="mb-12">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Hoje</h1>
-        <p className="text-zinc-500 mt-1">Foco nas tarefas pendentes.</p>
+    <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6">
+      <header className="mb-12 border-b border-app-border pb-8">
+        <h1 className="text-4xl font-display font-black text-app-fg tracking-tighter">FOCO OPERACIONAL</h1>
+        <p className="text-app-text-dim mt-2">Tarefas críticas para a manifestação do império hoje.</p>
       </header>
 
-      <div className="vercel-card p-8">
-        <div className="space-y-2">
+      <div className="bento-grid-item p-8">
+        <div className="space-y-4">
           {isLoading ? (
-            <div className="flex justify-center py-12"><Loader2 className="animate-spin text-zinc-400" size={32} /></div>
+            <div className="flex justify-center py-20"><Loader2 className="animate-spin text-app-accent" size={48} /></div>
           ) : activeTodos.map((todo) => (
             <SortableTodoItem 
               key={todo.id}
@@ -94,8 +94,8 @@ export function Hoje() {
             />
           ))}
           {!isLoading && activeTodos.length === 0 && (
-            <div className="text-center py-12 text-zinc-400 text-sm">
-              Tudo limpo por hoje! 🎉
+            <div className="text-center py-20 text-app-text-dim text-sm italic font-serif">
+              "A quietude precede a grande escala. Todas as diretrizes do dia foram cumpridas."
             </div>
           )}
         </div>

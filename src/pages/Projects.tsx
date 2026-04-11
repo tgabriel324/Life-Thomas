@@ -78,24 +78,24 @@ export function Projects() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6">
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6">
+      <div className="flex items-center justify-between mb-12 border-b border-app-border pb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Projetos</h1>
-          <p className="text-zinc-500 text-sm mt-1">Gerencie seus grandes objetivos.</p>
+          <h1 className="text-3xl font-display font-black text-app-fg tracking-tighter">PROJETOS ESTRATÉGICOS</h1>
+          <p className="text-app-text-dim text-sm mt-1">Gerencie os grandes pilares do seu império.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <button 
             onClick={handleFixDatabase}
-            className="vercel-button-secondary text-[10px] py-1"
+            className="btn-elite text-[10px] py-2 px-4"
           >
-            Fix DB
+            Sincronizar DB
           </button>
           <button 
             onClick={() => setIsAdding(true)}
-            className="vercel-button-primary flex items-center gap-2"
+            className="btn-elite flex items-center gap-2 bg-app-accent text-white border-none"
           >
-            <Plus size={16} />
+            <Plus size={18} />
             Novo Projeto
           </button>
         </div>
@@ -104,33 +104,33 @@ export function Projects() {
       <AnimatePresence>
         {isAdding && (
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="vercel-card p-6 mb-8"
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="bento-grid-item p-8 mb-12"
           >
-            <form onSubmit={handleAddProject} className="flex gap-4">
+            <form onSubmit={handleAddProject} className="flex flex-col sm:flex-row gap-6">
               <input 
                 autoFocus
                 type="text"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Nome do projeto..."
-                className="flex-1 notion-input border-b border-zinc-200 focus:border-black transition-colors"
+                className="flex-1 input-elite"
               />
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button 
                   type="button"
                   onClick={() => setIsAdding(false)}
-                  className="vercel-button-secondary"
+                  className="btn-elite"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="vercel-button-primary"
+                  className="btn-elite bg-app-accent text-white border-none"
                 >
-                  Criar
+                  Criar Projeto
                 </button>
               </div>
             </form>
@@ -138,37 +138,44 @@ export function Projects() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {isLoading ? (
-          <div className="col-span-full flex justify-center py-12">
-            <Loader2 className="animate-spin text-zinc-400" size={32} />
+          <div className="col-span-full flex justify-center py-20">
+            <Loader2 className="animate-spin text-app-accent" size={48} />
           </div>
         ) : projects.map((project) => (
           <Link 
             key={project.id}
             to={`/projects/${project.id}`}
-            className="vercel-card p-6 group relative"
+            className="bento-grid-item p-8 group relative"
           >
             <div 
-              className="w-1 h-12 absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
-              style={{ backgroundColor: project.color }}
+              className="w-1.5 h-12 absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full shadow-glow-accent"
+              style={{ backgroundColor: project.color || 'var(--app-accent)' }}
             />
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-lg font-bold text-zinc-900">{project.name}</h3>
+            <div className="flex items-start justify-between mb-6">
+              <h3 className="text-2xl font-display font-bold text-app-fg group-hover:text-app-accent transition-colors">{project.name}</h3>
               <button 
                 onClick={(e) => handleDeleteProject(project.id, e)}
-                className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
+                className="opacity-0 group-hover:opacity-100 p-2 text-app-text-dim hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
               >
-                <Trash2 size={14} />
+                <Trash2 size={18} />
               </button>
             </div>
-            <p className="text-xs text-zinc-500 line-clamp-2">{project.description || 'Sem descrição.'}</p>
-            <div className="mt-6 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-              <span>Ver Tarefas</span>
-              <ChevronRight size={14} />
+            <p className="text-sm text-app-text-dim leading-relaxed line-clamp-2">{project.description || 'Nenhuma diretriz definida para este projeto.'}</p>
+            <div className="mt-8 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] text-app-text-dim group-hover:text-app-fg transition-colors">
+              <span>Acessar Dossiê</span>
+              <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </div>
           </Link>
         ))}
+        
+        {!isLoading && projects.length === 0 && (
+          <div className="col-span-full py-32 bento-grid-item border-dashed flex flex-col items-center justify-center text-app-text-dim">
+            <Plus size={48} className="mb-4 opacity-10" />
+            <p className="text-sm font-bold uppercase tracking-widest">Nenhum projeto no radar.</p>
+          </div>
+        )}
       </div>
     </div>
   );

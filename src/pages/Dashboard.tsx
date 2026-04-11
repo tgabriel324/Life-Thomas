@@ -52,15 +52,15 @@ export function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-8"
       >
-        <div className="flex items-end justify-between border-b border-zinc-900 pb-6">
+        <div className="flex items-end justify-between border-b border-app-border pb-6">
           <div>
-            <h2 className="text-3xl font-display font-black text-white tracking-tighter flex items-center gap-3">
-              <Bot className="text-indigo-500" size={32} />
+            <h2 className="text-3xl font-display font-black text-app-fg tracking-tighter flex items-center gap-3">
+              <Bot className="text-app-accent" size={32} />
               CÓRTEX DE CONSCIÊNCIA
             </h2>
-            <p className="text-sm text-zinc-500 mt-2">Visão macro do império processada por <span className="text-white font-medium">{systemAgent?.name || 'Life Thomas (Deus)'}</span>.</p>
+            <p className="text-sm text-app-text-dim mt-2">Visão macro do império processada por <span className="text-app-fg font-medium">{systemAgent?.name || 'Life Thomas (Deus)'}</span>.</p>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">
+          <div className="flex items-center gap-2 px-4 py-2 bg-app-accent/10 border border-app-accent/20 rounded-full text-[10px] font-black text-app-accent uppercase tracking-[0.2em]">
             <Zap size={12} className="animate-pulse" />
             Sincronia Ativa
           </div>
@@ -68,28 +68,28 @@ export function Dashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {directors.map(director => (
-            <div key={director.id} className="bento-grid-item p-8 group aura-indigo">
+            <div key={director.id} className="bento-grid-item p-8 group">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-zinc-950 rounded-2xl flex items-center justify-center border border-zinc-800 group-hover:border-indigo-500/50 transition-colors">
-                    <TrendingUp className="text-indigo-400" size={24} />
+                  <div className="w-12 h-12 bg-app-bg rounded-2xl flex items-center justify-center border border-app-border group-hover:border-app-accent/50 transition-colors">
+                    <TrendingUp className="text-app-accent" size={24} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Diretoria Estratégica</p>
-                    <h3 className="text-lg font-display font-bold text-white">{director.name}</h3>
+                    <p className="text-[10px] font-black text-app-accent uppercase tracking-widest mb-1">Diretoria Estratégica</p>
+                    <h3 className="text-lg font-display font-bold text-app-fg">{director.name}</h3>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Operacional</span>
+                  <span className="text-[10px] font-bold text-app-text-dim uppercase tracking-tighter">Operacional</span>
                 </div>
               </div>
               <div className="space-y-6">
-                <p className="text-sm text-zinc-400 leading-relaxed font-serif italic opacity-80">
+                <p className="text-sm text-app-text-dim leading-relaxed font-serif italic opacity-80">
                   "Monitorando {projects.length} projetos ativos. Alinhamento estratégico mantido com o núcleo central. O fluxo de capital intelectual está otimizado."
                 </p>
                 <div className="flex gap-3">
-                  <span className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                  <span className="px-3 py-1.5 bg-app-bg border border-app-border rounded-lg text-[10px] font-bold text-app-text-dim uppercase tracking-wider">
                     {projects.length} Projetos
                   </span>
                   <span className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
@@ -101,7 +101,7 @@ export function Dashboard() {
           ))}
           
           {directors.length === 0 && (
-            <div className="col-span-2 py-20 bento-grid-item border-dashed flex flex-col items-center justify-center text-zinc-600">
+            <div className="col-span-2 py-20 bento-grid-item border-dashed flex flex-col items-center justify-center text-app-text-dim">
               <AlertCircle size={40} className="mb-4 opacity-20" />
               <p className="text-sm font-medium tracking-widest uppercase">Aguardando relatórios dos diretores...</p>
             </div>
@@ -122,13 +122,13 @@ export function Dashboard() {
             className="bento-grid-item p-8 group"
           >
             <div className="flex items-center justify-between mb-6">
-              <div className={cn("w-12 h-12 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center transition-all group-hover:scale-110 group-hover:border-white/20", card.color)}>
+              <div className={cn("w-12 h-12 rounded-2xl bg-app-bg border border-app-border flex items-center justify-center transition-all group-hover:scale-110 group-hover:border-app-accent/20", card.color)}>
                 <card.icon size={24} />
               </div>
-              <ChevronRight size={20} className="text-zinc-700 group-hover:text-white group-hover:translate-x-1 transition-all" />
+              <ChevronRight size={20} className="text-app-text-dim group-hover:text-app-fg group-hover:translate-x-1 transition-all" />
             </div>
-            <h3 className="text-xl font-display font-bold text-white mb-2">{card.title}</h3>
-            <p className="text-sm text-zinc-500 leading-relaxed">{card.description}</p>
+            <h3 className="text-xl font-display font-bold text-app-fg mb-2">{card.title}</h3>
+            <p className="text-sm text-app-text-dim leading-relaxed">{card.description}</p>
           </Link>
         ))}
       </motion.div>

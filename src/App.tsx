@@ -14,7 +14,7 @@ function App() {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-obsidian font-sans text-zinc-400 selection:bg-zinc-800 selection:text-white">
+    <div className="min-h-screen bg-app-bg font-sans text-app-text-dim selection:bg-app-accent selection:text-white transition-colors duration-500">
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence mode="wait">

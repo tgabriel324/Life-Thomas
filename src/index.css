@@ -7,16 +7,58 @@
   --font-display: "Outfit", sans-serif;
   --font-serif: "Playfair Display", serif;
 
-  --color-obsidian: #050505;
-  --color-zinc-deep: #09090b;
+  --color-app-bg: var(--app-bg);
+  --color-app-fg: var(--app-fg);
+  --color-app-card: var(--app-card);
+  --color-app-border: var(--app-border);
+  --color-app-accent: var(--app-accent);
+  --color-app-text-dim: var(--app-text-dim);
   
   --shadow-elite: 0 20px 50px -12px rgba(0, 0, 0, 0.7);
-  --shadow-glow-indigo: 0 0 30px rgba(99, 102, 241, 0.15);
-  --shadow-glow-emerald: 0 0 30px rgba(16, 185, 129, 0.15);
-  --shadow-glow-rose: 0 0 30px rgba(244, 63, 94, 0.15);
+  --shadow-glow-accent: 0 0 30px var(--app-accent-glow);
   
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   --animate-float: float 6s ease-in-out infinite;
+}
+
+:root[data-theme='obsidian'] {
+  --app-bg: #050505;
+  --app-fg: #ffffff;
+  --app-card: rgba(15, 15, 18, 0.4);
+  --app-border: rgba(255, 255, 255, 0.05);
+  --app-accent: #6366f1;
+  --app-accent-glow: rgba(99, 102, 241, 0.15);
+  --app-text-dim: #71717a;
+}
+
+:root[data-theme='snow'] {
+  --app-bg: #fcfcfc;
+  --app-fg: #09090b;
+  --app-card: rgba(255, 255, 255, 0.8);
+  --app-border: rgba(0, 0, 0, 0.05);
+  --app-accent: #000000;
+  --app-accent-glow: rgba(0, 0, 0, 0.05);
+  --app-text-dim: #71717a;
+}
+
+:root[data-theme='cyber-emerald'] {
+  --app-bg: #020604;
+  --app-fg: #ecfdf5;
+  --app-card: rgba(6, 78, 59, 0.1);
+  --app-border: rgba(16, 185, 129, 0.1);
+  --app-accent: #10b981;
+  --app-accent-glow: rgba(16, 185, 129, 0.15);
+  --app-text-dim: #34d399;
+}
+
+:root[data-theme='royal-navy'] {
+  --app-bg: #020617;
+  --app-fg: #f8fafc;
+  --app-card: rgba(30, 41, 59, 0.3);
+  --app-border: rgba(51, 65, 85, 0.3);
+  --app-accent: #eab308;
+  --app-accent-glow: rgba(234, 179, 8, 0.1);
+  --app-text-dim: #94a3b8;
 }
 
 @keyframes float {
@@ -24,52 +66,95 @@
   50% { transform: translateY(-10px); }
 }
 
+@layer utilities {
+  /* Persona Specific Effects */
+  .persona-deus {
+    --persona-accent: #10b981;
+    --persona-glow: rgba(16, 185, 129, 0.2);
+  }
+
+  .persona-diretor {
+    --persona-accent: #3b82f6;
+    --persona-glow: rgba(59, 130, 246, 0.2);
+  }
+
+  .persona-executor {
+    --persona-accent: #f59e0b;
+    --persona-glow: rgba(245, 158, 11, 0.2);
+  }
+
+  .bg-dots {
+    background-image: radial-gradient(var(--persona-accent) 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.1;
+  }
+
+  .animate-float-persona {
+    animation: floatPersona 6s ease-in-out infinite;
+  }
+
+  @keyframes floatPersona {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .brutal-border {
+    border: 3px solid var(--persona-accent);
+    box-shadow: 8px 8px 0px 0px var(--persona-accent);
+  }
+
+  .glass-persona {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .marquee-text {
+    display: flex;
+    white-space: nowrap;
+    animation: marquee 20s linear infinite;
+  }
+
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+}
+
 @layer base {
   body {
-    @apply bg-obsidian text-zinc-400 font-sans antialiased selection:bg-zinc-800 selection:text-white;
+    @apply bg-app-bg text-app-text-dim font-sans antialiased transition-colors duration-500 selection:bg-app-accent selection:text-white;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply text-white font-display tracking-tight;
+    @apply text-app-fg font-display tracking-tight;
   }
 }
 
 @layer utilities {
   .glass-morphism {
-    @apply bg-zinc-900/40 backdrop-blur-xl border border-white/5 shadow-elite;
+    @apply bg-app-card backdrop-blur-xl border border-app-border shadow-elite;
   }
   
-  .glass-morphism-dark {
-    @apply bg-black/60 backdrop-blur-2xl border border-zinc-800/30 shadow-2xl;
-  }
-
-  .aura-emerald {
-    @apply border-emerald-500/20 shadow-[0_0_40px_rgba(16,185,129,0.1)];
-  }
-
-  .aura-indigo {
-    @apply border-indigo-500/20 shadow-[0_0_40px_rgba(99,102,241,0.1)];
-  }
-
-  .aura-rose {
-    @apply border-rose-500/20 shadow-[0_0_40px_rgba(244,63,94,0.1)];
-  }
-
   .text-gradient-silver {
-    @apply bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-500;
+    @apply bg-clip-text text-transparent bg-gradient-to-b from-app-fg to-app-text-dim;
   }
 
   .bento-grid-item {
-    @apply relative overflow-hidden rounded-3xl border border-zinc-800/50 bg-zinc-900/20 transition-all duration-500 hover:border-zinc-700 hover:bg-zinc-900/40;
+    @apply relative overflow-hidden rounded-3xl border border-app-border bg-app-card transition-all duration-500 hover:border-app-accent/30 hover:bg-app-card;
   }
 }
 
 @layer components {
   .btn-elite {
-    @apply relative inline-flex items-center justify-center px-6 py-3 font-medium text-white transition-all duration-300 bg-zinc-900 border border-zinc-800 rounded-full hover:bg-white hover:text-black active:scale-95 disabled:opacity-50 overflow-hidden;
+    @apply relative inline-flex items-center justify-center px-6 py-3 font-medium text-app-fg transition-all duration-300 bg-app-card border border-app-border rounded-full hover:bg-app-fg hover:text-app-bg active:scale-95 disabled:opacity-50 overflow-hidden;
   }
 
   .input-elite {
-    @apply w-full bg-zinc-950/50 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-all;
+    @apply w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-fg placeholder:text-app-text-dim focus:outline-none focus:border-app-accent transition-all;
   }
 }
