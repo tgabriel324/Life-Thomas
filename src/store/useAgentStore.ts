@@ -3,7 +3,7 @@ import { create } from 'zustand';
 interface Agent {
   id: number;
   name: string;
-  type: string;
+  type: 'system' | 'director' | 'project' | 'task';
   parentId: number | null;
   linkedId: number | null;
   description: string;
@@ -22,7 +22,8 @@ interface AgentStore {
   setActiveAgent: (agent: Agent | null) => void;
   setLoading: (loading: boolean) => void;
   fetchAgents: () => Promise<void>;
-  switchContext: (type: 'system' | 'project' | 'task', linkedId?: number) => void;
+  syncAgents: () => Promise<void>;
+  switchContext: (type: 'system' | 'director' | 'project' | 'task', linkedId?: number) => void;
   getAgentByContext: (type: string, id?: number) => Agent | null;
   notifyChange: (message: string) => void;
   lastEvent: string | null;
@@ -38,6 +39,20 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   setAgents: (agents) => set({ agents }),
   setActiveAgent: (activeAgent) => set({ activeAgent }),
   setLoading: (loading) => set({ loading }),
+  syncAgents: async () => {
+    set({ loading: true });
+    try {
+      const response = await fetch('/api/agents/sync', { method: 'POST' });
+      if (response.ok) {
+        const store = get();
+        await store.fetchAgents();
+      }
+    } catch (error) {
+      console.error('Failed to sync agents:', error);
+    } finally {
+      set({ loading: false });
+    }
+  },
   fetchAgents: async () => {
     set({ loading: true });
     try {
@@ -62,6 +77,8 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
 
     if (type === 'system') {
       targetAgent = agents.find(a => a.type === 'system');
+    } else if (type === 'director') {
+      targetAgent = agents.find(a => a.type === 'director');
     } else {
       targetAgent = agents.find(a => a.type === type && a.linkedId === linkedId);
     }

@@ -28,8 +28,9 @@ interface Message {
 }
 
 export function Agents() {
-  const { agents, activeAgent, setActiveAgent, fetchAgents, loading } = useAgentStore();
+  const { agents, activeAgent, setActiveAgent, fetchAgents, syncAgents, loading } = useAgentStore();
   const [seeding, setSeeding] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Chat State
   const [messages, setMessages] = useState<Message[]>([]);
@@ -39,12 +40,21 @@ export function Agents() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchAgents();
+    syncAgents();
   }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, thought]);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncAgents();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleSeedDeus = async () => {
     setSeeding(true);
@@ -73,7 +83,7 @@ export function Agents() {
     try {
       const embedding = await generateEmbedding(userMessage);
       
-      setThought('Buscando memórias relevantes (RAG)...');
+      setThought('Buscando memórias locais...');
       const searchResponse = await fetch('/api/agents/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,10 +94,36 @@ export function Agents() {
         })
       });
       const memories = await searchResponse.json();
+      let context = memories.map((m: any) => m.content).join('\n---\n');
+
+      // --- Step 3: Hierarchical Briefing Protocol ---
+      if (activeAgent.parentId) {
+        const parentAgent = agents.find(a => a.id === activeAgent.parentId);
+        if (parentAgent) {
+          setThought(`Consultando superior: ${parentAgent.name}...`);
+          const parentSearchResponse = await fetch('/api/agents/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              embedding, 
+              agentId: parentAgent.id,
+              limit: 2 
+            })
+          });
+          const parentMemories = await parentSearchResponse.json();
+          const parentContext = parentMemories.map((m: any) => m.content).join('\n---\n');
+          
+          context = `
+CONTEXTO DO SUPERIOR (${parentAgent.name}):
+${parentContext || 'Sem memórias adicionais do superior.'}
+---
+CONTEXTO LOCAL (${activeAgent.name}):
+${context}
+          `;
+        }
+      }
       
-      const context = memories.map((m: any) => m.content).join('\n---\n');
-      
-      setThought('Processando resposta com Gemini...');
+      setThought('Sincronizando com Gemini...');
       const systemPrompt = `
         Você é o agente "${activeAgent.name}".
         Tipo: ${activeAgent.type}
@@ -96,7 +132,10 @@ export function Agents() {
         Metas: ${activeAgent.goals}
         Instruções: ${activeAgent.instructions}
         
-        Contexto Recuperado (Memórias):
+        PROTOCOLO DE BRIEFING ATIVO:
+        Você deve agir em total alinhamento com seu superior imediato.
+        
+        Contexto Integrado (Memórias):
         ${context || 'Nenhuma memória relevante encontrada.'}
         
         Responda ao Thomas de forma ultra-profissional, focada em escala e visão bilionária.
@@ -183,31 +222,41 @@ export function Agents() {
   return (
     <div className="flex h-[calc(100vh-64px)] bg-zinc-950 text-zinc-300 overflow-hidden">
       {/* Sidebar Hierárquica Refinada */}
-      <aside className="w-72 border-r border-zinc-800 bg-zinc-900/50 backdrop-blur-xl flex flex-col">
-        <div className="p-5 border-b border-zinc-800">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Linhagem de IA</h2>
+      <aside className="w-80 border-r border-zinc-800 bg-zinc-900/50 backdrop-blur-xl flex flex-col">
+        <div className="p-6 border-b border-zinc-800">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-lg font-black text-white tracking-tighter flex items-center gap-2">
+              <Network className="text-indigo-500" size={24} />
+              LINHAGEM
+            </h1>
             <button 
-              onClick={fetchAgents}
-              className="p-1.5 hover:bg-zinc-800 rounded-full transition-colors text-zinc-500 hover:text-zinc-200"
+              onClick={handleSync}
+              disabled={isSyncing || loading}
+              className={cn(
+                "p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-indigo-400 hover:border-indigo-500/30 transition-all",
+                (isSyncing || loading) && "animate-spin"
+              )}
+              title="Sincronizar Hierarquia"
             >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              <RefreshCw size={18} />
             </button>
           </div>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
             <input 
               type="text" 
-              placeholder="Buscar agente..." 
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-full py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
+              placeholder="Buscar consciência..." 
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-zinc-700"
             />
           </div>
         </div>
         
-        <nav className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* System Agents Section */}
-          <div>
-            <h3 className="px-3 text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Sistema</h3>
+        <nav className="flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar relative">
+          <div className="absolute left-7 top-8 bottom-8 w-[1px] bg-gradient-to-b from-indigo-500/50 via-amber-500/50 via-emerald-500/50 to-rose-500/50 opacity-20" />
+          
+          {/* Nível 1: DEUS */}
+          <div className="space-y-3">
+            <h2 className="px-4 text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Nível 01: Sistema</h2>
             <div className="space-y-1">
               {agents.filter(a => a.type === 'system').map((agent) => (
                 <AgentNavItem 
@@ -219,20 +268,37 @@ export function Agents() {
               ))}
               {agents.filter(a => a.type === 'system').length === 0 && !loading && (
                 <button 
-                  onClick={handleSeedDeus}
-                  disabled={seeding}
-                  className="w-full py-3 border border-dashed border-indigo-500/30 text-indigo-400 text-[10px] font-bold rounded-lg hover:bg-indigo-500/5 transition-all flex flex-col items-center gap-2"
+                  onClick={handleSync}
+                  className="w-full py-4 border border-dashed border-indigo-500/30 text-indigo-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-indigo-500/5 transition-all flex flex-col items-center gap-2"
                 >
                   <Zap size={16} />
-                  INICIALIZAR DEUS
+                  INICIALIZAR SISTEMA
                 </button>
               )}
             </div>
           </div>
 
-          {/* Project Agents Section */}
-          <div>
-            <h3 className="px-3 text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Projetos</h3>
+          {/* Nível 2: DIRETORES */}
+          <div className="space-y-3">
+            <h2 className="px-4 text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Nível 02: Diretores</h2>
+            <div className="space-y-1">
+              {agents.filter(a => a.type === 'director').map((agent) => (
+                <AgentNavItem 
+                  key={agent.id} 
+                  agent={agent} 
+                  isActive={activeAgent?.id === agent.id} 
+                  onClick={() => { setActiveAgent(agent); setMessages([]); }} 
+                />
+              ))}
+              {agents.filter(a => a.type === 'director').length === 0 && (
+                <p className="px-4 text-[10px] text-zinc-700 italic font-medium">Aguardando promoção de diretores...</p>
+              )}
+            </div>
+          </div>
+
+          {/* Nível 3: GERENTES */}
+          <div className="space-y-3">
+            <h2 className="px-4 text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Nível 03: Projetos</h2>
             <div className="space-y-1">
               {agents.filter(a => a.type === 'project').map((agent) => (
                 <AgentNavItem 
@@ -243,14 +309,14 @@ export function Agents() {
                 />
               ))}
               {agents.filter(a => a.type === 'project').length === 0 && (
-                <p className="px-3 text-[10px] text-zinc-700 italic">Nenhum agente de projeto.</p>
+                <p className="px-4 text-[10px] text-zinc-700 italic font-medium">Nenhum gerente de projeto ativo.</p>
               )}
             </div>
           </div>
 
-          {/* Task Agents Section */}
-          <div>
-            <h3 className="px-3 text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Tarefas</h3>
+          {/* Nível 4: EXECUTORES */}
+          <div className="space-y-3">
+            <h2 className="px-4 text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">Nível 04: Tarefas</h2>
             <div className="space-y-1">
               {agents.filter(a => a.type === 'task').map((agent) => (
                 <AgentNavItem 
@@ -261,7 +327,7 @@ export function Agents() {
                 />
               ))}
               {agents.filter(a => a.type === 'task').length === 0 && (
-                <p className="px-3 text-[10px] text-zinc-700 italic">Nenhum agente de tarefa.</p>
+                <p className="px-4 text-[10px] text-zinc-700 italic font-medium">Nenhum executor em campo.</p>
               )}
             </div>
           </div>
@@ -297,11 +363,14 @@ export function Agents() {
                     <div className="flex items-center gap-3 mb-4">
                       <div className={cn(
                         "px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-[0.2em] border",
-                        activeAgent.type === 'system' 
-                          ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" 
-                          : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        activeAgent.type === 'system' && "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+                        activeAgent.type === 'director' && "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                        activeAgent.type === 'project' && "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+                        activeAgent.type === 'task' && "bg-rose-500/10 text-rose-400 border-rose-500/20"
                       )}>
-                        {activeAgent.type}
+                        {activeAgent.type === 'system' ? 'Nível 01: Sistema' : 
+                         activeAgent.type === 'director' ? 'Nível 02: Diretor' :
+                         activeAgent.type === 'project' ? 'Nível 03: Projeto' : 'Nível 04: Tarefa'}
                       </div>
                       <div className="h-4 w-[1px] bg-zinc-800" />
                       <div className="flex items-center gap-2">
@@ -598,6 +667,17 @@ interface AgentNavItemProps {
 }
 
 function AgentNavItem({ agent, isActive, onClick }: AgentNavItemProps) {
+  const { agents } = useAgentStore();
+  const getIconColor = () => {
+    switch (agent.type) {
+      case 'system': return isActive ? "bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)]" : "bg-indigo-900";
+      case 'director': return isActive ? "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.8)]" : "bg-amber-900";
+      case 'project': return isActive ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" : "bg-emerald-900";
+      case 'task': return isActive ? "bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.8)]" : "bg-rose-900";
+      default: return "bg-zinc-800";
+    }
+  };
+
   return (
     <button
       onClick={onClick}
@@ -605,7 +685,10 @@ function AgentNavItem({ agent, isActive, onClick }: AgentNavItemProps) {
         "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs transition-all group relative overflow-hidden",
         isActive 
           ? "bg-indigo-600/10 text-indigo-400 border border-indigo-500/20" 
-          : "hover:bg-zinc-800/50 text-zinc-500 hover:text-zinc-300 border border-transparent"
+          : "hover:bg-zinc-800/50 text-zinc-500 hover:text-zinc-300 border border-transparent",
+        agent.type === 'director' && "ml-2 w-[calc(100%-0.5rem)]",
+        agent.type === 'project' && "ml-4 w-[calc(100%-1rem)]",
+        agent.type === 'task' && "ml-6 w-[calc(100%-1.5rem)]"
       )}
     >
       {isActive && (
@@ -614,13 +697,15 @@ function AgentNavItem({ agent, isActive, onClick }: AgentNavItemProps) {
           className="absolute left-0 w-1 h-6 bg-indigo-500 rounded-r-full" 
         />
       )}
-      <div className={cn(
-        "w-2 h-2 rounded-full transition-all duration-500",
-        agent.type === 'system' 
-          ? (isActive ? "bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)]" : "bg-indigo-900") 
-          : (isActive ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" : "bg-emerald-900")
-      )} />
-      <span className="truncate flex-1 text-left font-bold tracking-tight">{agent.name}</span>
+      <div className={cn("w-2 h-2 rounded-full transition-all duration-500", getIconColor())} />
+      <div className="flex-1 min-w-0 text-left">
+        <span className="block truncate font-bold tracking-tight">{agent.name}</span>
+        {agent.parentId && (
+          <span className="block text-[8px] text-zinc-600 uppercase tracking-widest mt-0.5">
+            Subordinado a: {agents.find(a => a.id === agent.parentId)?.name || 'Desconhecido'}
+          </span>
+        )}
+      </div>
       <ChevronRight size={14} className={cn(
         "transition-all duration-300",
         isActive ? "rotate-90 text-indigo-400" : "opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"

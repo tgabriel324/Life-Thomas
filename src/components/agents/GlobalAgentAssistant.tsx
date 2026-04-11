@@ -10,6 +10,7 @@ import {
   ChevronDown,
   BrainCircuit
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAgentStore } from '../../store/useAgentStore';
 import { ai, generateEmbedding } from '../../lib/gemini';
@@ -21,7 +22,8 @@ interface Message {
 }
 
 export function GlobalAgentAssistant() {
-  const { activeAgent, agents, fetchAgents, lastEvent } = useAgentStore();
+  const { activeAgent, agents, fetchAgents, switchContext, lastEvent } = useAgentStore();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -34,6 +36,24 @@ export function GlobalAgentAssistant() {
       fetchAgents();
     }
   }, []);
+
+  // Context Switching Logic
+  useEffect(() => {
+    const path = location.pathname;
+    
+    if (path === '/') {
+      switchContext('system');
+    } else if (path === '/projects') {
+      switchContext('director');
+    } else if (path.startsWith('/projects/')) {
+      const projectId = parseInt(path.split('/')[2]);
+      if (!isNaN(projectId)) {
+        switchContext('project', projectId);
+      }
+    } else if (path === '/agents') {
+      // Keep current or default to system
+    }
+  }, [location.pathname, agents]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,7 +72,9 @@ export function GlobalAgentAssistant() {
     try {
       const embedding = await generateEmbedding(userMessage);
       
-      setThought('Recuperando memórias estratégicas...');
+      setThought('Recuperando memórias estratégicas (Briefing)...');
+      
+      // Fetch current agent memories
       const searchResponse = await fetch('/api/agents/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,16 +85,50 @@ export function GlobalAgentAssistant() {
         })
       });
       const memories = await searchResponse.json();
-      const context = memories.map((m: any) => m.content).join('\n---\n');
+      let context = memories.map((m: any) => m.content).join('\n---\n');
+
+      // --- Step 3: Hierarchical Briefing Protocol ---
+      let parentContext = '';
+      if (activeAgent.parentId) {
+        const parentAgent = agents.find(a => a.id === activeAgent.parentId);
+        if (parentAgent) {
+          setThought(`Consultando superior: ${parentAgent.name}...`);
+          const parentSearchResponse = await fetch('/api/agents/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              embedding, 
+              agentId: parentAgent.id,
+              limit: 2 
+            })
+          });
+          const parentMemories = await parentSearchResponse.json();
+          parentContext = parentMemories.map((m: any) => m.content).join('\n---\n');
+          
+          context = `
+CONTEXTO DO SUPERIOR (${parentAgent.name}):
+${parentContext || 'Sem memórias adicionais do superior.'}
+---
+CONTEXTO LOCAL (${activeAgent.name}):
+${context}
+          `;
+        }
+      }
       
       setThought('Sincronizando com Gemini...');
       const systemPrompt = `
         Você é o agente "${activeAgent.name}".
-        Tipo: ${activeAgent.type}
+        Nível: ${activeAgent.type}
         Persona: ${activeAgent.persona}
-        Contexto Recuperado: ${context || 'Nenhuma memória específica.'}
+        Instruções: ${activeAgent.instructions}
         
-        Responda de forma curta, direta e estratégica. Você está ajudando o Thomas em uma tarefa específica agora.
+        PROTOCOLO DE BRIEFING ATIVO:
+        Você tem acesso ao contexto do seu superior imediato para garantir alinhamento.
+        
+        Contexto Integrado:
+        ${context || 'Nenhuma memória específica encontrada.'}
+        
+        Diretriz: Responda de forma curta, estratégica e sempre alinhada com o contexto do seu superior se disponível.
       `;
 
       const stream = await ai.models.generateContentStream({

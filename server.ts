@@ -16,10 +16,18 @@ async function startServer() {
   const PORT = 3000;
 
   console.log('🚀 Server starting...');
-  if (!process.env.DATABASE_URL) {
-    console.error('❌ DATABASE_URL is missing from environment variables!');
-  } else {
-    console.log('🔗 DATABASE_URL is present.');
+  
+  // --- Database Connection Check ---
+  try {
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL is not defined.');
+    }
+    const client = await pool.connect();
+    console.log('✅ Database connection established successfully.');
+    client.release();
+  } catch (error) {
+    console.error('❌ CRITICAL DATABASE ERROR:', error instanceof Error ? error.message : String(error));
+    console.error('👉 The application will likely fail. Please check your DATABASE_URL in Settings > Secrets.');
   }
 
   // --- Auto-Migration ---
@@ -270,6 +278,110 @@ async function startServer() {
 
       console.error('Failed to fetch agents:', msg);
       res.status(500).json({ error: 'Failed to fetch agents', details: msg });
+    }
+  });
+
+  app.post('/api/agents/sync', async (req, res) => {
+    try {
+      const { agents: agentsTable } = await import('./src/db/schema.ts');
+      
+      console.log('🔄 Starting Agent Hierarchy Sync...');
+
+      // 1. Ensure DEUS (System Agent) exists
+      let [deus] = await db.select().from(agentsTable).where(eq(agentsTable.type, 'system'));
+      if (!deus) {
+        console.log('✨ Creating DEUS...');
+        [deus] = await db.insert(agentsTable).values({
+          name: 'Life Thomas (Deus)',
+          type: 'system',
+          description: 'O agente macro que entende todo o sistema e a visão bilionária.',
+          persona: 'Estrategista de elite, mentor, focado em escala e visão de longo prazo.',
+          scope: 'Todo o sistema Life Thomas, integração de projetos e alinhamento de vida.',
+          goals: 'Transformar a vida do Thomas em um império bilionário através de organização e inteligência.',
+          instructions: 'Sempre considere o impacto de longo prazo. Priorize escala. Mantenha o alinhamento entre micro tarefas e macro objetivos.',
+        }).returning();
+      }
+
+      // 2. Ensure PROJECTS DIRECTOR (Director Agent) exists
+      let [projectsDirector] = await db.select().from(agentsTable).where(eq(agentsTable.type, 'director'));
+      if (!projectsDirector) {
+        console.log('✨ Creating Projects Director...');
+        [projectsDirector] = await db.insert(agentsTable).values({
+          name: 'Diretor de Projetos',
+          type: 'director',
+          parentId: deus.id,
+          description: 'Responsável por supervisionar todos os projetos e garantir o alinhamento estratégico.',
+          persona: 'Gestor de portfólio experiente, focado em recursos, prazos globais e sinergia entre projetos.',
+          scope: 'Visão geral de todos os projetos ativos no sistema.',
+          goals: 'Otimizar a alocação de tempo e energia entre os diferentes projetos do Thomas.',
+          instructions: 'Analise a carga de trabalho total. Identifique projetos que estão parados. Sugira conexões entre projetos diferentes.',
+        }).returning();
+      }
+
+      // 3. Sync PROJECTS
+      const allProjects = await db.select().from(projects);
+      for (const project of allProjects) {
+        let [projectAgent] = await db.select().from(agentsTable).where(
+          sql`${agentsTable.type} = 'project' AND ${agentsTable.linkedId} = ${project.id}`
+        );
+
+        if (!projectAgent) {
+          console.log(`✨ Creating Agent for Project: ${project.name}`);
+          await db.insert(agentsTable).values({
+            name: `Agente ${project.name}`,
+            type: 'project',
+            parentId: projectsDirector.id,
+            linkedId: project.id,
+            description: `Especialista focado no projeto: ${project.name}.`,
+            persona: 'Gerente de projeto técnico, focado em prazos e qualidade de código.',
+            scope: `Gerenciamento e execução do projeto ${project.name}.`,
+            goals: `Garantir que o projeto ${project.name} seja concluído com excelência.`,
+            instructions: 'Analise as tarefas deste projeto e sugira otimizações constantes.',
+          });
+        } else if (projectAgent.parentId !== projectsDirector.id) {
+          // Update parent if needed
+          await db.update(agentsTable).set({ parentId: projectsDirector.id }).where(eq(agentsTable.id, projectAgent.id));
+        }
+      }
+
+      // 4. Sync TASKS
+      const allTodos = await db.select().from(todos);
+      for (const todo of allTodos) {
+        let [taskAgent] = await db.select().from(agentsTable).where(
+          sql`${agentsTable.type} = 'task' AND ${agentsTable.linkedId} = ${todo.id}`
+        );
+
+        // Find parent project agent
+        let parentId = null;
+        if (todo.projectId) {
+          const [parentProjectAgent] = await db.select().from(agentsTable).where(
+            sql`${agentsTable.type} = 'project' AND ${agentsTable.linkedId} = ${todo.projectId}`
+          );
+          if (parentProjectAgent) parentId = parentProjectAgent.id;
+        }
+
+        if (!taskAgent) {
+          console.log(`✨ Creating Agent for Task: ${todo.text.substring(0, 20)}`);
+          await db.insert(agentsTable).values({
+            name: `Executor: ${todo.text.substring(0, 20)}${todo.text.length > 20 ? '...' : ''}`,
+            type: 'task',
+            parentId: parentId,
+            linkedId: todo.id,
+            description: `Especialista focado na execução da tarefa: ${todo.text}.`,
+            persona: 'Executor ágil, focado em micro-decisões e eficiência técnica.',
+            scope: `Execução da tarefa ID ${todo.id}.`,
+            goals: 'Completar a tarefa da forma mais eficiente possível.',
+            instructions: 'Foque nos detalhes técnicos e impeça qualquer bloqueio na execução.',
+          });
+        } else if (taskAgent.parentId !== parentId) {
+          await db.update(agentsTable).set({ parentId: parentId }).where(eq(agentsTable.id, taskAgent.id));
+        }
+      }
+
+      res.json({ success: true, message: 'Hierarchy sync completed.' });
+    } catch (error) {
+      console.error('❌ Sync failed:', error);
+      res.status(500).json({ error: 'Sync failed', details: String(error) });
     }
   });
 

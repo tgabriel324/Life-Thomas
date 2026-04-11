@@ -1,11 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Bell, User } from 'lucide-react';
+import { Search, Bell, User, Database } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 export function Header() {
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'loading'>('loading');
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        setDbStatus(data.database === 'connected' ? 'connected' : 'error');
+      } catch (e) {
+        setDbStatus('error');
+      }
+    };
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-zinc-200">
@@ -19,6 +35,7 @@ export function Header() {
           </Link>
           
           <nav className="hidden md:flex items-center ml-8 gap-1">
+            {/* ... existing links ... */}
             <Link 
               to="/" 
               className={cn(
@@ -68,6 +85,17 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Database Status Indicator */}
+          <div className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border",
+            dbStatus === 'connected' && "bg-emerald-50 text-emerald-600 border-emerald-100",
+            dbStatus === 'error' && "bg-rose-50 text-rose-600 border-rose-100 animate-pulse",
+            dbStatus === 'loading' && "bg-zinc-50 text-zinc-400 border-zinc-100"
+          )}>
+            <Database size={12} />
+            {dbStatus === 'connected' ? 'DB Online' : dbStatus === 'error' ? 'DB Offline' : 'Checking DB...'}
+          </div>
+
           <button className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
             <Search size={20} />
           </button>
