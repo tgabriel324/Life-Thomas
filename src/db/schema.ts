@@ -49,3 +49,12 @@ export const agentMemories = pgTable('agent_memories', {
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+export const todoAttachments = pgTable('todo_attachments', {
+  id: serial('id').primaryKey(),
+  todoId: integer('todo_id').references(() => todos.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // 'audio', 'image', 'document', 'link', 'repo', 'code', etc.
+  content: text('content').notNull(),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').defaultNow(),
+});

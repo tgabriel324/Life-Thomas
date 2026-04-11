@@ -110,6 +110,14 @@ async function startServer() {
           "metadata" jsonb,
           "created_at" timestamp DEFAULT now()
         );
+        CREATE TABLE IF NOT EXISTS "todo_attachments" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "todo_id" integer REFERENCES "todos"("id") ON DELETE CASCADE,
+          "type" text NOT NULL,
+          "content" text NOT NULL,
+          "metadata" jsonb,
+          "created_at" timestamp DEFAULT now()
+        );
       `);
       res.json({ success: true, message: 'Database tables and extensions ensured.' });
     } catch (error) {
@@ -625,6 +633,49 @@ async function startServer() {
     } catch (error) {
       console.error('Failed to delete todo:', error);
       res.status(500).json({ error: 'Failed to delete todo' });
+    }
+  });
+
+  // --- Todo Attachment Routes ---
+  app.get('/api/todos/:id/attachments', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const { todoAttachments: attachmentsTable } = await import('./src/db/schema.ts');
+      const attachments = await db.select().from(attachmentsTable).where(eq(attachmentsTable.todoId, Number(id)));
+      res.json(attachments);
+    } catch (error) {
+      console.error('Failed to fetch attachments:', error);
+      res.status(500).json({ error: 'Failed to fetch attachments' });
+    }
+  });
+
+  app.post('/api/todos/:id/attachments', async (req, res) => {
+    const { id } = req.params;
+    const { type, content, metadata } = req.body;
+    try {
+      const { todoAttachments: attachmentsTable } = await import('./src/db/schema.ts');
+      const [newAttachment] = await db.insert(attachmentsTable).values({
+        todoId: Number(id),
+        type,
+        content,
+        metadata: metadata || {}
+      }).returning();
+      res.status(201).json(newAttachment);
+    } catch (error) {
+      console.error('Failed to create attachment:', error);
+      res.status(500).json({ error: 'Failed to create attachment' });
+    }
+  });
+
+  app.delete('/api/attachments/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+      const { todoAttachments: attachmentsTable } = await import('./src/db/schema.ts');
+      await db.delete(attachmentsTable).where(eq(attachmentsTable.id, Number(id)));
+      res.status(204).send();
+    } catch (error) {
+      console.error('Failed to delete attachment:', error);
+      res.status(500).json({ error: 'Failed to delete attachment' });
     }
   });
 

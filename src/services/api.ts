@@ -43,6 +43,21 @@ export const api = {
       }).then(res => {
         if (!res.ok) throw new Error('Failed to reorder todos');
       }),
+
+    getAttachments: (id: number): Promise<any[]> =>
+      fetch(`${API_BASE}/todos/${id}/attachments`).then(handleResponse),
+
+    addAttachment: (id: number, data: { type: string; content: string; metadata?: any }): Promise<any> =>
+      fetch(`${API_BASE}/todos/${id}/attachments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).then(handleResponse),
+
+    deleteAttachment: (id: number): Promise<void> =>
+      fetch(`${API_BASE}/attachments/${id}`, { method: 'DELETE' }).then(res => {
+        if (!res.ok) throw new Error('Failed to delete attachment');
+      }),
   },
   
   projects: {

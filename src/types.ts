@@ -13,3 +13,12 @@ export interface Todo {
   project_id: number | null;
   due_date: string | null;
 }
+
+export interface TodoAttachment {
+  id: number;
+  todoId: number;
+  type: string;
+  content: string;
+  metadata: any;
+  createdAt: string;
+}

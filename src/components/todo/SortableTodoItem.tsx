@@ -6,13 +6,17 @@ import {
   Calendar,
   Edit2,
   Trash2,
-  X
+  X,
+  ChevronDown,
+  ChevronUp,
+  MoreHorizontal
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '../../lib/utils';
 import { Todo, Project } from '../../types';
 import { useAgentStore } from '../../store/useAgentStore';
+import { TaskAttachments } from './TaskAttachments';
 
 interface SortableTodoItemProps {
   key?: React.Key;
@@ -32,6 +36,7 @@ export function SortableTodoItem({
 }: SortableTodoItemProps) {
   const { switchContext } = useAgentStore();
   const [isEditing, setIsEditing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [editText, setEditText] = useState(todo.text);
   const [editDate, setEditDate] = useState(todo.due_date || '');
   const [editProjectId, setEditProjectId] = useState<number | null>(todo.project_id);
@@ -152,14 +157,19 @@ export function SortableTodoItem({
         ) : (
           <div 
             className="cursor-pointer" 
-            onClick={handleStartEdit}
+            onClick={() => setIsExpanded(!isExpanded)}
           >
-            <span className={cn(
-              "text-sm transition-all truncate block font-medium",
-              todo.completed ? "text-app-text-dim/40 line-through" : "text-app-fg"
-            )}>
-              {todo.text}
-            </span>
+            <div className="flex items-center justify-between">
+              <span className={cn(
+                "text-sm transition-all truncate block font-medium",
+                todo.completed ? "text-app-text-dim/40 line-through" : "text-app-fg"
+              )}>
+                {todo.text}
+              </span>
+              <button className="text-app-text-dim/40 group-hover:text-app-accent transition-colors">
+                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+            </div>
             <div className="flex items-center gap-3 mt-1">
               {project && (
                 <span 
@@ -177,6 +187,10 @@ export function SortableTodoItem({
               )}
             </div>
           </div>
+        )}
+        
+        {isExpanded && !isEditing && (
+          <TaskAttachments todoId={todo.id} />
         )}
       </div>
 
