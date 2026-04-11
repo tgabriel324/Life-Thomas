@@ -45,51 +45,54 @@ export function Dashboard() {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6 space-y-12">
-      {/* Status Reports Hierárquicos (Passo 3) */}
+    <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 space-y-16">
+      {/* Status Reports Hierárquicos */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-6"
+        className="space-y-8"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-end justify-between border-b border-zinc-900 pb-6">
           <div>
-            <h2 className="text-2xl font-black text-zinc-900 tracking-tight flex items-center gap-2">
-              <Bot className="text-indigo-600" />
-              RELATÓRIOS DE CONSCIÊNCIA
+            <h2 className="text-3xl font-display font-black text-white tracking-tighter flex items-center gap-3">
+              <Bot className="text-indigo-500" size={32} />
+              CÓRTEX DE CONSCIÊNCIA
             </h2>
-            <p className="text-sm text-zinc-500">Visão macro do seu império processada pelo {systemAgent?.name || 'Deus'}.</p>
+            <p className="text-sm text-zinc-500 mt-2">Visão macro do império processada por <span className="text-white font-medium">{systemAgent?.name || 'Life Thomas (Deus)'}</span>.</p>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-100 rounded-full text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">
             <Zap size={12} className="animate-pulse" />
             Sincronia Ativa
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {directors.map(director => (
-            <div key={director.id} className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-amber-50 rounded-2xl flex items-center justify-center border border-amber-100">
-                    <TrendingUp className="text-amber-600" size={20} />
+            <div key={director.id} className="bento-grid-item p-8 group aura-indigo">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-zinc-950 rounded-2xl flex items-center justify-center border border-zinc-800 group-hover:border-indigo-500/50 transition-colors">
+                    <TrendingUp className="text-indigo-400" size={24} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Diretoria</p>
-                    <h3 className="text-sm font-bold text-zinc-900">{director.name}</h3>
+                    <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Diretoria Estratégica</p>
+                    <h3 className="text-lg font-display font-bold text-white">{director.name}</h3>
                   </div>
                 </div>
-                <div className="text-[10px] font-medium text-zinc-400">Status: Operacional</div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Operacional</span>
+                </div>
               </div>
-              <div className="space-y-3">
-                <p className="text-xs text-zinc-600 leading-relaxed italic">
-                  "Monitorando {projects.length} projetos ativos. Alinhamento estratégico mantido com o núcleo central."
+              <div className="space-y-6">
+                <p className="text-sm text-zinc-400 leading-relaxed font-serif italic opacity-80">
+                  "Monitorando {projects.length} projetos ativos. Alinhamento estratégico mantido com o núcleo central. O fluxo de capital intelectual está otimizado."
                 </p>
-                <div className="flex gap-2">
-                  <span className="px-2 py-1 bg-zinc-100 rounded-md text-[9px] font-bold text-zinc-500 uppercase tracking-tighter">
+                <div className="flex gap-3">
+                  <span className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                     {projects.length} Projetos
                   </span>
-                  <span className="px-2 py-1 bg-emerald-50 rounded-md text-[9px] font-bold text-emerald-600 uppercase tracking-tighter">
+                  <span className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
                     Eficiência: 94%
                   </span>
                 </div>
@@ -98,9 +101,9 @@ export function Dashboard() {
           ))}
           
           {directors.length === 0 && (
-            <div className="col-span-2 py-12 border-2 border-dashed border-zinc-100 rounded-3xl flex flex-col items-center justify-center text-zinc-400">
-              <AlertCircle size={32} className="mb-2 opacity-20" />
-              <p className="text-xs font-medium">Aguardando relatórios dos diretores...</p>
+            <div className="col-span-2 py-20 bento-grid-item border-dashed flex flex-col items-center justify-center text-zinc-600">
+              <AlertCircle size={40} className="mb-4 opacity-20" />
+              <p className="text-sm font-medium tracking-widest uppercase">Aguardando relatórios dos diretores...</p>
             </div>
           )}
         </div>
@@ -110,22 +113,22 @@ export function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        className="grid grid-cols-1 md:grid-cols-3 gap-8"
       >
         {cards.map((card) => (
           <Link 
             key={card.id}
             to={card.path}
-            className="vercel-card block p-6 group"
+            className="bento-grid-item p-8 group"
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className={cn("p-2 rounded-md bg-zinc-50 border border-zinc-100", card.color)}>
-                <card.icon size={20} />
+            <div className="flex items-center justify-between mb-6">
+              <div className={cn("w-12 h-12 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center transition-all group-hover:scale-110 group-hover:border-white/20", card.color)}>
+                <card.icon size={24} />
               </div>
-              <ChevronRight size={16} className="text-zinc-300 group-hover:text-zinc-900 transition-colors" />
+              <ChevronRight size={20} className="text-zinc-700 group-hover:text-white group-hover:translate-x-1 transition-all" />
             </div>
-            <h3 className="text-base font-semibold text-zinc-900 mb-1">{card.title}</h3>
-            <p className="text-xs text-zinc-500 leading-relaxed">{card.description}</p>
+            <h3 className="text-xl font-display font-bold text-white mb-2">{card.title}</h3>
+            <p className="text-sm text-zinc-500 leading-relaxed">{card.description}</p>
           </Link>
         ))}
       </motion.div>

@@ -1,62 +1,75 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@700;800;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-display: "Outfit", sans-serif;
+  --font-serif: "Playfair Display", serif;
 
-  --shadow-elite: 0 20px 50px -12px rgba(0, 0, 0, 0.5);
-  --shadow-glow-indigo: 0 0 20px rgba(99, 102, 241, 0.2);
-  --shadow-glow-emerald: 0 0 20px rgba(16, 185, 129, 0.2);
+  --color-obsidian: #050505;
+  --color-zinc-deep: #09090b;
+  
+  --shadow-elite: 0 20px 50px -12px rgba(0, 0, 0, 0.7);
+  --shadow-glow-indigo: 0 0 30px rgba(99, 102, 241, 0.15);
+  --shadow-glow-emerald: 0 0 30px rgba(16, 185, 129, 0.15);
+  --shadow-glow-rose: 0 0 30px rgba(244, 63, 94, 0.15);
+  
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-float: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
 @layer base {
   body {
-    @apply bg-white text-zinc-900 font-sans antialiased;
+    @apply bg-obsidian text-zinc-400 font-sans antialiased selection:bg-zinc-800 selection:text-white;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-white font-display tracking-tight;
   }
 }
 
 @layer utilities {
   .glass-morphism {
-    @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-elite;
+    @apply bg-zinc-900/40 backdrop-blur-xl border border-white/5 shadow-elite;
   }
   
   .glass-morphism-dark {
-    @apply bg-zinc-950/70 backdrop-blur-2xl border border-zinc-800/50 shadow-2xl;
+    @apply bg-black/60 backdrop-blur-2xl border border-zinc-800/30 shadow-2xl;
   }
 
-  .glow-indigo {
-    @apply shadow-[0_0_30px_rgba(99,102,241,0.3)];
+  .aura-emerald {
+    @apply border-emerald-500/20 shadow-[0_0_40px_rgba(16,185,129,0.1)];
   }
 
-  .glow-emerald {
-    @apply shadow-[0_0_30px_rgba(16,185,129,0.3)];
+  .aura-indigo {
+    @apply border-indigo-500/20 shadow-[0_0_40px_rgba(99,102,241,0.1)];
   }
 
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-br from-zinc-900 to-zinc-500;
+  .aura-rose {
+    @apply border-rose-500/20 shadow-[0_0_40px_rgba(244,63,94,0.1)];
   }
 
-  .text-gradient-indigo {
-    @apply bg-clip-text text-transparent bg-gradient-to-br from-indigo-400 to-indigo-600;
+  .text-gradient-silver {
+    @apply bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-500;
+  }
+
+  .bento-grid-item {
+    @apply relative overflow-hidden rounded-3xl border border-zinc-800/50 bg-zinc-900/20 transition-all duration-500 hover:border-zinc-700 hover:bg-zinc-900/40;
   }
 }
 
 @layer components {
-  .vercel-card {
-    @apply bg-white border border-zinc-200 rounded-lg transition-all duration-200 hover:border-zinc-400 hover:shadow-sm;
-  }
-  
-  .vercel-button-primary {
-    @apply bg-black text-white px-4 py-2 rounded-md font-medium text-sm transition-all hover:bg-zinc-800 active:scale-95 disabled:opacity-50;
+  .btn-elite {
+    @apply relative inline-flex items-center justify-center px-6 py-3 font-medium text-white transition-all duration-300 bg-zinc-900 border border-zinc-800 rounded-full hover:bg-white hover:text-black active:scale-95 disabled:opacity-50 overflow-hidden;
   }
 
-  .vercel-button-secondary {
-    @apply bg-white border border-zinc-200 text-zinc-600 px-4 py-2 rounded-md font-medium text-sm transition-all hover:border-zinc-900 hover:text-zinc-900 active:scale-95;
-  }
-
-  .notion-input {
-    @apply w-full bg-transparent border-none focus:ring-0 placeholder:text-zinc-400 text-sm py-2;
+  .input-elite {
+    @apply w-full bg-zinc-950/50 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-all;
   }
 }

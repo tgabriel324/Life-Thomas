@@ -24,23 +24,22 @@ export function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-zinc-200">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white font-bold text-xl transition-transform group-hover:scale-105">
+    <header className="sticky top-0 z-50 w-full bg-black/40 backdrop-blur-xl border-b border-zinc-900/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+        <div className="flex items-center gap-8">
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-black font-display font-black text-xl transition-all group-hover:scale-105 group-hover:rotate-3 shadow-[0_0_20px_rgba(255,255,255,0.2)]">
               LT
             </div>
-            <span className="font-bold text-lg tracking-tight text-zinc-900">Life Thomas</span>
+            <span className="font-display font-bold text-xl tracking-tight text-white">Life Thomas</span>
           </Link>
           
-          <nav className="hidden md:flex items-center ml-8 gap-1">
-            {/* ... existing links ... */}
+          <nav className="hidden lg:flex items-center gap-2">
             <Link 
               to="/" 
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                isHome ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                "px-4 py-2 text-sm font-medium rounded-full transition-all",
+                isHome ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-white hover:bg-zinc-900"
               )}
             >
               Dashboard
@@ -48,8 +47,8 @@ export function Header() {
             <Link 
               to="/hoje" 
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                location.pathname === '/hoje' ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                "px-4 py-2 text-sm font-medium rounded-full transition-all",
+                location.pathname === '/hoje' ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-white hover:bg-zinc-900"
               )}
             >
               Hoje
@@ -57,8 +56,8 @@ export function Header() {
             <Link 
               to="/checklist" 
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                location.pathname === '/checklist' ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                "px-4 py-2 text-sm font-medium rounded-full transition-all",
+                location.pathname === '/checklist' ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-white hover:bg-zinc-900"
               )}
             >
               Checklist
@@ -66,8 +65,8 @@ export function Header() {
             <Link 
               to="/projects" 
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                location.pathname.startsWith('/projects') ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                "px-4 py-2 text-sm font-medium rounded-full transition-all",
+                location.pathname.startsWith('/projects') ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-white hover:bg-zinc-900"
               )}
             >
               Projetos
@@ -75,8 +74,8 @@ export function Header() {
             <Link 
               to="/agents" 
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-                location.pathname.startsWith('/agents') ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                "px-4 py-2 text-sm font-medium rounded-full transition-all",
+                location.pathname.startsWith('/agents') ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-white hover:bg-zinc-900"
               )}
             >
               Agentes
@@ -84,26 +83,30 @@ export function Header() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {/* Database Status Indicator */}
           <div className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border",
-            dbStatus === 'connected' && "bg-emerald-50 text-emerald-600 border-emerald-100",
-            dbStatus === 'error' && "bg-rose-50 text-rose-600 border-rose-100 animate-pulse",
-            dbStatus === 'loading' && "bg-zinc-50 text-zinc-400 border-zinc-100"
+            "flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all",
+            dbStatus === 'connected' && "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]",
+            dbStatus === 'error' && "bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse",
+            dbStatus === 'loading' && "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"
           )}>
-            <Database size={12} />
-            {dbStatus === 'connected' ? 'DB Online' : dbStatus === 'error' ? 'DB Offline' : 'Checking DB...'}
+            <div className={cn(
+              "w-1.5 h-1.5 rounded-full",
+              dbStatus === 'connected' ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" : 
+              dbStatus === 'error' ? "bg-rose-400" : "bg-zinc-600"
+            )} />
+            {dbStatus === 'connected' ? 'System Online' : dbStatus === 'error' ? 'System Offline' : 'Syncing...'}
           </div>
 
-          <button className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors">
+          <button className="p-2 text-zinc-500 hover:text-white transition-colors">
             <Search size={20} />
           </button>
-          <button className="p-2 text-zinc-400 hover:text-zinc-900 transition-colors relative">
+          <button className="p-2 text-zinc-500 hover:text-white transition-colors relative">
             <Bell size={20} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full border-2 border-white"></span>
+            <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.6)]"></span>
           </button>
-          <div className="w-8 h-8 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500 overflow-hidden">
+          <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 overflow-hidden hover:border-zinc-600 transition-all cursor-pointer">
             <User size={20} />
           </div>
         </div>

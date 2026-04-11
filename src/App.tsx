@@ -14,9 +14,9 @@ function App() {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 selection:bg-zinc-900 selection:text-white">
+    <div className="min-h-screen bg-obsidian font-sans text-zinc-400 selection:bg-zinc-800 selection:text-white">
       <Header />
-      <main className="max-w-7xl mx-auto">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <AnimatePresence mode="wait">
           <motion.div 
             key={location.pathname}
