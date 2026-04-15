@@ -263,6 +263,18 @@ async function startServer() {
     const { name, description, color } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
+    if (isMockMode) {
+      const newProject = {
+        id: Math.max(...mockData.projects.map(p => p.id)) + 1,
+        name,
+        description: description || '',
+        color: color || '#000000',
+        createdAt: new Date().toISOString()
+      };
+      mockData.projects.push(newProject as any);
+      return res.status(201).json(newProject);
+    }
+
     try {
       const [newProject] = await db.insert(projects).values({
         name,
@@ -313,6 +325,10 @@ async function startServer() {
 
   app.delete('/api/projects/:id', async (req, res) => {
     const { id } = req.params;
+    if (isMockMode) {
+      mockData.projects = mockData.projects.filter(p => p.id !== Number(id));
+      return res.status(204).send();
+    }
     try {
       const { agents: agentsTable } = await import('./src/db/schema.ts');
       
@@ -596,6 +612,15 @@ async function startServer() {
   });
 
   app.post('/api/team', async (req, res) => {
+    if (isMockMode) {
+      const newMember = {
+        id: Math.max(...mockData.teamMembers.map(m => m.id)) + 1,
+        ...req.body,
+        createdAt: new Date().toISOString()
+      };
+      mockData.teamMembers.push(newMember as any);
+      return res.status(201).json(newMember);
+    }
     try {
       const [newMember] = await db.insert(teamMembers).values(req.body).returning();
       res.status(201).json(newMember);
@@ -605,10 +630,17 @@ async function startServer() {
   });
 
   app.patch('/api/team/:id', async (req, res) => {
+    const { id } = req.params;
+    if (isMockMode) {
+      const index = mockData.teamMembers.findIndex(m => m.id === Number(id));
+      if (index === -1) return res.status(404).json({ error: 'Member not found' });
+      mockData.teamMembers[index] = { ...mockData.teamMembers[index], ...req.body };
+      return res.json(mockData.teamMembers[index]);
+    }
     try {
       const [updatedMember] = await db.update(teamMembers)
         .set(req.body)
-        .where(eq(teamMembers.id, Number(req.params.id)))
+        .where(eq(teamMembers.id, Number(id)))
         .returning();
       res.json(updatedMember);
     } catch (error) {
@@ -617,8 +649,13 @@ async function startServer() {
   });
 
   app.delete('/api/team/:id', async (req, res) => {
+    const { id } = req.params;
+    if (isMockMode) {
+      mockData.teamMembers = mockData.teamMembers.filter(m => m.id !== Number(id));
+      return res.status(204).send();
+    }
     try {
-      await db.delete(teamMembers).where(eq(teamMembers.id, Number(req.params.id)));
+      await db.delete(teamMembers).where(eq(teamMembers.id, Number(id)));
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: 'Failed to delete team member' });
@@ -637,6 +674,15 @@ async function startServer() {
   });
 
   app.post('/api/objectives', async (req, res) => {
+    if (isMockMode) {
+      const newObjective = {
+        id: mockData.objectives.length > 0 ? Math.max(...mockData.objectives.map(o => o.id)) + 1 : 1,
+        ...req.body,
+        createdAt: new Date().toISOString()
+      };
+      mockData.objectives.push(newObjective as any);
+      return res.status(201).json(newObjective);
+    }
     try {
       const [newObjective] = await db.insert(objectives).values(req.body).returning();
       res.status(201).json(newObjective);
@@ -646,10 +692,17 @@ async function startServer() {
   });
 
   app.patch('/api/objectives/:id', async (req, res) => {
+    const { id } = req.params;
+    if (isMockMode) {
+      const index = mockData.objectives.findIndex(o => o.id === Number(id));
+      if (index === -1) return res.status(404).json({ error: 'Objective not found' });
+      mockData.objectives[index] = { ...mockData.objectives[index], ...req.body };
+      return res.json(mockData.objectives[index]);
+    }
     try {
       const [updatedObjective] = await db.update(objectives)
         .set(req.body)
-        .where(eq(objectives.id, Number(req.params.id)))
+        .where(eq(objectives.id, Number(id)))
         .returning();
       res.json(updatedObjective);
     } catch (error) {
@@ -658,8 +711,13 @@ async function startServer() {
   });
 
   app.delete('/api/objectives/:id', async (req, res) => {
+    const { id } = req.params;
+    if (isMockMode) {
+      mockData.objectives = mockData.objectives.filter(o => o.id !== Number(id));
+      return res.status(204).send();
+    }
     try {
-      await db.delete(objectives).where(eq(objectives.id, Number(req.params.id)));
+      await db.delete(objectives).where(eq(objectives.id, Number(id)));
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: 'Failed to delete objective' });
@@ -677,6 +735,15 @@ async function startServer() {
   });
 
   app.post('/api/goals', async (req, res) => {
+    if (isMockMode) {
+      const newGoal = {
+        id: mockData.goals.length > 0 ? Math.max(...mockData.goals.map(g => g.id)) + 1 : 1,
+        ...req.body,
+        createdAt: new Date().toISOString()
+      };
+      mockData.goals.push(newGoal as any);
+      return res.status(201).json(newGoal);
+    }
     try {
       const [newGoal] = await db.insert(goals).values(req.body).returning();
       res.status(201).json(newGoal);
@@ -686,10 +753,17 @@ async function startServer() {
   });
 
   app.patch('/api/goals/:id', async (req, res) => {
+    const { id } = req.params;
+    if (isMockMode) {
+      const index = mockData.goals.findIndex(g => g.id === Number(id));
+      if (index === -1) return res.status(404).json({ error: 'Goal not found' });
+      mockData.goals[index] = { ...mockData.goals[index], ...req.body };
+      return res.json(mockData.goals[index]);
+    }
     try {
       const [updatedGoal] = await db.update(goals)
         .set(req.body)
-        .where(eq(goals.id, Number(req.params.id)))
+        .where(eq(goals.id, Number(id)))
         .returning();
       res.json(updatedGoal);
     } catch (error) {
@@ -698,8 +772,13 @@ async function startServer() {
   });
 
   app.delete('/api/goals/:id', async (req, res) => {
+    const { id } = req.params;
+    if (isMockMode) {
+      mockData.goals = mockData.goals.filter(g => g.id !== Number(id));
+      return res.status(204).send();
+    }
     try {
-      await db.delete(goals).where(eq(goals.id, Number(req.params.id)));
+      await db.delete(goals).where(eq(goals.id, Number(id)));
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: 'Failed to delete goal' });
@@ -770,23 +849,48 @@ async function startServer() {
   });
 
   app.post('/api/todos', async (req, res) => {
-    const { text, project_id, due_date } = req.body;
+    const { text, projectId, project_id, dueDate, due_date, priority, assignedTo, assigned_to, goalId, goal_id } = req.body;
     if (!text) return res.status(400).json({ error: 'Text is required' });
 
+    const finalProjectId = projectId || project_id;
+    const finalDueDate = dueDate || due_date;
+    const finalAssignedTo = assignedTo || assigned_to;
+    const finalGoalId = goalId || goal_id;
+
+    if (isMockMode) {
+      const nextPos = mockData.todos.length > 0 
+        ? Math.max(...mockData.todos.map(t => t.position)) + 1 
+        : 0;
+      const newTodo = {
+        id: mockData.todos.length > 0 ? Math.max(...mockData.todos.map(t => t.id)) + 1 : 1,
+        text,
+        position: nextPos,
+        projectId: finalProjectId || null,
+        dueDate: finalDueDate || null,
+        completed: false,
+        priority: priority || 'medium',
+        assignedTo: finalAssignedTo || null,
+        goalId: finalGoalId || null,
+        createdAt: new Date().toISOString()
+      };
+      mockData.todos.push(newTodo as any);
+      return res.status(201).json(newTodo);
+    }
+
     try {
-      // Get max position
-      const [maxPosResult] = await db.select({ 
-        maxPos: sql<number>`max(${todos.position})` 
-      }).from(todos);
-      
-      const nextPos = (maxPosResult?.maxPos ?? -1) + 1;
+      // Get max position using a more robust query
+      const [lastTodo] = await db.select().from(todos).orderBy(desc(todos.position)).limit(1);
+      const nextPos = (lastTodo?.position ?? -1) + 1;
 
       const [newTodo] = await db.insert(todos).values({
         text,
         position: nextPos,
-        projectId: project_id || null,
-        dueDate: due_date || null,
-        completed: false
+        projectId: finalProjectId || null,
+        dueDate: finalDueDate || null,
+        completed: false,
+        priority: priority || 'medium',
+        assignedTo: finalAssignedTo || null,
+        goalId: finalGoalId || null
       }).returning();
       
       // Create associated Task Agent
@@ -816,14 +920,34 @@ async function startServer() {
 
   app.patch('/api/todos/:id', async (req, res) => {
     const { id } = req.params;
-    const { text, completed, project_id, due_date } = req.body;
+    const { text, completed, projectId, project_id, dueDate, due_date, priority, assignedTo, assigned_to, goalId, goal_id } = req.body;
+
+    if (isMockMode) {
+      const index = mockData.todos.findIndex(t => t.id === Number(id));
+      if (index === -1) return res.status(404).json({ error: 'Todo not found' });
+      
+      const updates: any = {};
+      if (text !== undefined) updates.text = text;
+      if (completed !== undefined) updates.completed = !!completed;
+      if (projectId !== undefined || project_id !== undefined) updates.projectId = projectId || project_id;
+      if (dueDate !== undefined || due_date !== undefined) updates.dueDate = dueDate || due_date;
+      if (priority !== undefined) updates.priority = priority;
+      if (assignedTo !== undefined || assigned_to !== undefined) updates.assignedTo = assignedTo || assigned_to;
+      if (goalId !== undefined || goal_id !== undefined) updates.goalId = goalId || goal_id;
+
+      mockData.todos[index] = { ...mockData.todos[index], ...updates };
+      return res.json(mockData.todos[index]);
+    }
 
     try {
       const updates: any = {};
       if (text !== undefined) updates.text = text;
       if (completed !== undefined) updates.completed = !!completed;
-      if (project_id !== undefined) updates.projectId = project_id;
-      if (due_date !== undefined) updates.dueDate = due_date;
+      if (projectId !== undefined || project_id !== undefined) updates.projectId = projectId || project_id;
+      if (dueDate !== undefined || due_date !== undefined) updates.dueDate = dueDate || due_date;
+      if (priority !== undefined) updates.priority = priority;
+      if (assignedTo !== undefined || assigned_to !== undefined) updates.assignedTo = assignedTo || assigned_to;
+      if (goalId !== undefined || goal_id !== undefined) updates.goalId = goalId || goal_id;
 
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ error: 'No fields to update' });
@@ -845,6 +969,10 @@ async function startServer() {
 
   app.delete('/api/todos/:id', async (req, res) => {
     const { id } = req.params;
+    if (isMockMode) {
+      mockData.todos = mockData.todos.filter(t => t.id !== Number(id));
+      return res.status(204).send();
+    }
     try {
       const { agents: agentsTable } = await import('./src/db/schema.ts');
       
@@ -1011,6 +1139,15 @@ async function startServer() {
   app.put('/api/todos/reorder', async (req, res) => {
     const { ids } = req.body;
     if (!Array.isArray(ids)) return res.status(400).json({ error: 'IDs array required' });
+
+    if (isMockMode) {
+      // Update positions in mock data
+      ids.forEach((id, index) => {
+        const todo = mockData.todos.find(t => t.id === Number(id));
+        if (todo) todo.position = index;
+      });
+      return res.json({ success: true });
+    }
 
     try {
       // In PostgreSQL with Drizzle, we can use a transaction for reordering
