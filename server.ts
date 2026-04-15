@@ -66,6 +66,94 @@ async function startServer() {
     ]
   };
 
+  const SCHEMA_SQL = `
+    CREATE TABLE IF NOT EXISTS "projects" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "name" text NOT NULL,
+      "description" text,
+      "color" text DEFAULT '#000000',
+      "created_at" timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "team_members" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "name" text NOT NULL,
+      "role" text NOT NULL,
+      "specialty" text,
+      "email" text,
+      "whatsapp" text,
+      "avatar" text,
+      "status" text DEFAULT 'available',
+      "created_at" timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "objectives" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "title" text NOT NULL,
+      "description" text,
+      "status" text DEFAULT 'active',
+      "created_at" timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "goals" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "objective_id" integer REFERENCES "objectives"("id") ON DELETE CASCADE,
+      "title" text NOT NULL,
+      "target_value" text,
+      "current_value" text DEFAULT '0',
+      "deadline" text,
+      "status" text DEFAULT 'active',
+      "created_at" timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "todos" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "text" text NOT NULL,
+      "completed" boolean DEFAULT false,
+      "position" integer NOT NULL,
+      "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
+      "due_date" text,
+      "priority" text DEFAULT 'medium',
+      "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL,
+      "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL,
+      "created_at" timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "agents" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "name" text NOT NULL,
+      "type" text NOT NULL,
+      "parent_id" integer,
+      "linked_id" integer,
+      "description" text,
+      "persona" text,
+      "scope" text,
+      "goals" text,
+      "instructions" text,
+      "status" text DEFAULT 'active',
+      "created_at" timestamp DEFAULT now(),
+      "updated_at" timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "todo_attachments" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "todo_id" integer REFERENCES "todos"("id") ON DELETE CASCADE,
+      "type" text NOT NULL,
+      "content" text NOT NULL,
+      "metadata" jsonb,
+      "created_at" timestamp DEFAULT now()
+    );
+    -- Ensure columns exist if table was created with old schema
+    DO $$ 
+    BEGIN 
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'todos') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'todos' AND column_name = 'priority') THEN
+          ALTER TABLE "todos" ADD COLUMN "priority" text DEFAULT 'medium';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'todos' AND column_name = 'assigned_to') THEN
+          ALTER TABLE "todos" ADD COLUMN "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'todos' AND column_name = 'goal_id') THEN
+          ALTER TABLE "todos" ADD COLUMN "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL;
+        END IF;
+      END IF;
+    END $$;
+  `;
+
   // --- Auto-Migration ---
   if (!isMockMode) {
     try {
@@ -116,101 +204,24 @@ async function startServer() {
         console.warn('⚠️ Could not enable vector extension. Vector operations might fail.', e);
       }
 
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS "projects" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "name" text NOT NULL,
-          "description" text,
-          "color" text DEFAULT '#000000',
-          "created_at" timestamp DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS "team_members" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "name" text NOT NULL,
-          "role" text NOT NULL,
-          "specialty" text,
-          "email" text,
-          "whatsapp" text,
-          "avatar" text,
-          "status" text DEFAULT 'available',
-          "created_at" timestamp DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS "objectives" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "title" text NOT NULL,
-          "description" text,
-          "status" text DEFAULT 'active',
-          "created_at" timestamp DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS "goals" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "objective_id" integer REFERENCES "objectives"("id") ON DELETE CASCADE,
-          "title" text NOT NULL,
-          "target_value" text,
-          "current_value" text DEFAULT '0',
-          "deadline" text,
-          "status" text DEFAULT 'active',
-          "created_at" timestamp DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS "todos" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "text" text NOT NULL,
-          "completed" boolean DEFAULT false,
-          "position" integer NOT NULL,
-          "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
-          "due_date" text,
-          "priority" text DEFAULT 'medium',
-          "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL,
-          "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL,
-          "created_at" timestamp DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS "agents" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "name" text NOT NULL,
-          "type" text NOT NULL,
-          "parent_id" integer,
-          "linked_id" integer,
-          "description" text,
-          "persona" text,
-          "scope" text,
-          "goals" text,
-          "instructions" text,
-          "status" text DEFAULT 'active',
-          "created_at" timestamp DEFAULT now(),
-          "updated_at" timestamp DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS "agent_memories" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "agent_id" integer REFERENCES "agents"("id") ON DELETE CASCADE,
-          "content" text NOT NULL,
-          "embedding" vector(1536),
-          "metadata" jsonb,
-          "created_at" timestamp DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS "todo_attachments" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "todo_id" integer REFERENCES "todos"("id") ON DELETE CASCADE,
-          "type" text NOT NULL,
-          "content" text NOT NULL,
-          "metadata" jsonb,
-          "created_at" timestamp DEFAULT now()
-        );
-        -- Ensure columns exist if table was created with old schema
-        DO $$ 
-        BEGIN 
-          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'todos') THEN
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'todos' AND column_name = 'priority') THEN
-              ALTER TABLE "todos" ADD COLUMN "priority" text DEFAULT 'medium';
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'todos' AND column_name = 'assigned_to') THEN
-              ALTER TABLE "todos" ADD COLUMN "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'todos' AND column_name = 'goal_id') THEN
-              ALTER TABLE "todos" ADD COLUMN "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL;
-            END IF;
-          END IF;
-        END $$;
-      `);
+      await pool.query(SCHEMA_SQL);
+      
+      // Separate creation for vector-dependent table
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS "agent_memories" (
+            "id" serial PRIMARY KEY NOT NULL,
+            "agent_id" integer REFERENCES "agents"("id") ON DELETE CASCADE,
+            "content" text NOT NULL,
+            "embedding" vector(1536),
+            "metadata" jsonb,
+            "created_at" timestamp DEFAULT now()
+          );
+        `);
+      } catch (e) {
+        console.warn('⚠️ Could not create agent_memories (likely missing vector extension).');
+      }
+
       res.json({ success: true, message: 'Database tables and extensions ensured.' });
     } catch (error) {
       console.error('❌ Manual setup failed:', error);
@@ -231,55 +242,7 @@ async function startServer() {
       if (msg.includes('does not exist') || msg.includes('Failed query')) {
         console.log('⚠️ Tables might be missing. Attempting emergency creation...');
         try {
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS "projects" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "name" text NOT NULL,
-              "description" text,
-              "color" text DEFAULT '#000000',
-              "created_at" timestamp DEFAULT now()
-            );
-            CREATE TABLE IF NOT EXISTS "team_members" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "name" text NOT NULL,
-              "role" text NOT NULL,
-              "specialty" text,
-              "email" text,
-              "whatsapp" text,
-              "avatar" text,
-              "status" text DEFAULT 'available',
-              "created_at" timestamp DEFAULT now()
-            );
-            CREATE TABLE IF NOT EXISTS "objectives" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "title" text NOT NULL,
-              "description" text,
-              "status" text DEFAULT 'active',
-              "created_at" timestamp DEFAULT now()
-            );
-            CREATE TABLE IF NOT EXISTS "goals" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "objective_id" integer REFERENCES "objectives"("id") ON DELETE CASCADE,
-              "title" text NOT NULL,
-              "target_value" text,
-              "current_value" text DEFAULT '0',
-              "deadline" text,
-              "status" text DEFAULT 'active',
-              "created_at" timestamp DEFAULT now()
-            );
-            CREATE TABLE IF NOT EXISTS "todos" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "text" text NOT NULL,
-              "completed" boolean DEFAULT false,
-              "position" integer NOT NULL,
-              "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
-              "due_date" text,
-              "priority" text DEFAULT 'medium',
-              "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL,
-              "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL,
-              "created_at" timestamp DEFAULT now()
-            );
-          `);
+          await pool.query(SCHEMA_SQL);
           console.log('✅ Emergency tables created. Retrying query...');
           const retryProjects = await db.select().from(projects);
           return res.json(retryProjects);
@@ -851,55 +814,7 @@ async function startServer() {
       if (msg.includes('does not exist') || msg.includes('Failed query')) {
         console.log('⚠️ Tables might be missing in todos route. Attempting emergency creation...');
         try {
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS "projects" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "name" text NOT NULL,
-              "description" text,
-              "color" text DEFAULT '#000000',
-              "created_at" timestamp DEFAULT now()
-            );
-            CREATE TABLE IF NOT EXISTS "team_members" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "name" text NOT NULL,
-              "role" text NOT NULL,
-              "specialty" text,
-              "email" text,
-              "whatsapp" text,
-              "avatar" text,
-              "status" text DEFAULT 'available',
-              "created_at" timestamp DEFAULT now()
-            );
-            CREATE TABLE IF NOT EXISTS "objectives" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "title" text NOT NULL,
-              "description" text,
-              "status" text DEFAULT 'active',
-              "created_at" timestamp DEFAULT now()
-            );
-            CREATE TABLE IF NOT EXISTS "goals" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "objective_id" integer REFERENCES "objectives"("id") ON DELETE CASCADE,
-              "title" text NOT NULL,
-              "target_value" text,
-              "current_value" text DEFAULT '0',
-              "deadline" text,
-              "status" text DEFAULT 'active',
-              "created_at" timestamp DEFAULT now()
-            );
-            CREATE TABLE IF NOT EXISTS "todos" (
-              "id" serial PRIMARY KEY NOT NULL,
-              "text" text NOT NULL,
-              "completed" boolean DEFAULT false,
-              "position" integer NOT NULL,
-              "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
-              "due_date" text,
-              "priority" text DEFAULT 'medium',
-              "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL,
-              "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL,
-              "created_at" timestamp DEFAULT now()
-            );
-          `);
+          await pool.query(SCHEMA_SQL);
           const retryTodos = await db.select().from(todos).orderBy(asc(todos.position));
           return res.json(retryTodos);
         } catch (innerError) {
@@ -943,7 +858,20 @@ async function startServer() {
 
     try {
       // Get max position using a more robust query
-      const [lastTodo] = await db.select().from(todos).orderBy(desc(todos.position)).limit(1);
+      let lastTodo;
+      try {
+        [lastTodo] = await db.select().from(todos).orderBy(desc(todos.position)).limit(1);
+      } catch (selectError) {
+        const selectMsg = selectError instanceof Error ? selectError.message : String(selectError);
+        if (selectMsg.includes('does not exist') || selectMsg.includes('Failed query')) {
+          console.log('⚠️ Tables missing during todo creation. Attempting emergency fix...');
+          await pool.query(SCHEMA_SQL);
+          [lastTodo] = await db.select().from(todos).orderBy(desc(todos.position)).limit(1);
+        } else {
+          throw selectError;
+        }
+      }
+      
       const nextPos = (lastTodo?.position ?? -1) + 1;
 
       const [newTodo] = await db.insert(todos).values({
