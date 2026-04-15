@@ -15,13 +15,47 @@ export const projects = pgTable('projects', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+export const teamMembers = pgTable('team_members', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  role: text('role').notNull(),
+  specialty: text('specialty'),
+  email: text('email'),
+  whatsapp: text('whatsapp'),
+  avatar: text('avatar'),
+  status: text('status').default('available'), // 'available', 'focused', 'busy'
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const objectives = pgTable('objectives', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+  description: text('description'),
+  status: text('status').default('active'), // 'active', 'completed', 'on_hold'
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const goals = pgTable('goals', {
+  id: serial('id').primaryKey(),
+  objectiveId: integer('objective_id').references(() => objectives.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  targetValue: text('target_value'),
+  currentValue: text('current_value').default('0'),
+  deadline: text('deadline'),
+  status: text('status').default('active'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 export const todos = pgTable('todos', {
   id: serial('id').primaryKey(),
   text: text('text').notNull(),
   completed: boolean('completed').default(false),
   position: integer('position').notNull(),
   projectId: integer('project_id').references(() => projects.id, { onDelete: 'set null' }),
-  dueDate: text('due_date'), // Keeping as text for ISO strings as per previous implementation
+  dueDate: text('due_date'),
+  priority: text('priority').default('medium'), // 'low', 'medium', 'high', 'critical'
+  assignedTo: integer('assigned_to').references(() => teamMembers.id, { onDelete: 'set null' }),
+  goalId: integer('goal_id').references(() => goals.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

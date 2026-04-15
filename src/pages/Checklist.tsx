@@ -4,6 +4,7 @@ import {
   Plus, 
   ArrowLeft, 
   Loader2, 
+  Calendar,
   X 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -74,8 +75,8 @@ export function Checklist() {
     try {
       const newTodo = await api.todos.create({ 
         text: inputValue.trim(),
-        project_id: selectedProjectId,
-        due_date: selectedDate
+        projectId: selectedProjectId,
+        dueDate: selectedDate
       });
       setTodos([...todos, newTodo]);
       setInputValue('');
@@ -88,7 +89,7 @@ export function Checklist() {
 
   const handleToggleTodo = async (id: number, completed: boolean) => {
     try {
-      const updatedTodo = await api.todos.update(id, { completed: completed ? 1 : 0 });
+      const updatedTodo = await api.todos.update(id, { completed });
       setTodos(todos.map(t => t.id === id ? updatedTodo : t));
     } catch (error) {
       console.error('Failed to toggle todo:', error);
@@ -137,28 +138,20 @@ export function Checklist() {
 
   const filteredTodos = todos.filter(t => {
     if (activeFilter === 'pending') return !t.completed;
-    if (activeFilter === 'nodate') return !t.completed && !t.due_date;
+    if (activeFilter === 'nodate') return !t.completed && !t.dueDate;
     if (activeFilter === 'completed') return t.completed;
     return true;
   });
 
   return (
-    <div className="w-full h-[calc(100vh-64px)] flex flex-col p-6 overflow-hidden">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate('/')}
-            className="p-2 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-all"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Checklist</h1>
-            <p className="text-zinc-500 text-xs">Gerencie todas as suas tarefas.</p>
-          </div>
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-bold text-app-fg tracking-tight uppercase">Checklist</h1>
+          <p className="text-app-text-dim text-sm font-medium mt-1">Gerencie todas as suas tarefas pendentes.</p>
         </div>
 
-        <div className="flex items-center bg-zinc-100 p-1 rounded-lg">
+        <div className="flex items-center bg-app-card p-1 rounded-xl border border-app-border">
           {[
             { id: 'all', label: 'Todas' },
             { id: 'pending', label: 'Pendentes' },
@@ -169,8 +162,10 @@ export function Checklist() {
               key={tab.id}
               onClick={() => setActiveFilter(tab.id as any)}
               className={cn(
-                "px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-all",
-                activeFilter === tab.id ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"
+                "px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all duration-300",
+                activeFilter === tab.id 
+                  ? "bg-app-accent text-app-bg shadow-glow-accent" 
+                  : "text-app-text-dim hover:text-app-fg hover:bg-app-border/50"
               )}
             >
               {tab.label}
@@ -179,37 +174,42 @@ export function Checklist() {
         </div>
       </div>
 
-      <div className="mb-8">
-        <form onSubmit={handleAddTodo} className="flex gap-2 w-full max-w-2xl">
-          <div className="flex-1 flex items-center bg-zinc-50 border border-zinc-200 rounded-md px-3 focus-within:ring-1 focus-within:ring-black focus-within:border-black transition-all">
-            <Plus size={16} className="text-zinc-400 mr-2" />
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Adicionar nova tarefa..."
-              className="notion-input"
-            />
-            <div className="flex items-center gap-2 border-l border-zinc-200 pl-3 ml-2">
-              <div className="flex items-center">
+      <div className="max-w-4xl mx-auto w-full">
+        <form onSubmit={handleAddTodo} className="group">
+          <div className="flex flex-col md:flex-row gap-3 w-full bg-app-card border border-app-border rounded-2xl p-3 shadow-sm focus-within:border-app-accent/50 transition-all">
+            <div className="flex-1 flex items-center px-2">
+              <Plus size={18} className="text-app-accent mr-3" />
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Adicionar nova tarefa..."
+                className="w-full bg-transparent border-none focus:ring-0 text-app-fg placeholder:text-app-fg/30 text-sm font-medium"
+              />
+            </div>
+            
+            <div className="flex items-center gap-3 px-2 border-t md:border-t-0 md:border-l border-app-border pt-3 md:pt-0">
+              <div className="flex items-center bg-app-bg/50 rounded-xl px-3 py-2 border border-app-border/50">
+                <Calendar size={14} className="text-app-accent mr-2" />
                 <input 
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="text-[10px] font-bold uppercase tracking-widest bg-transparent border-none focus:ring-0 text-zinc-400 cursor-pointer hover:text-zinc-900 transition-colors"
+                  className="text-[10px] font-bold uppercase tracking-widest bg-transparent border-none focus:ring-0 text-app-fg cursor-pointer p-0"
                 />
                 {selectedDate && (
                   <button 
                     type="button"
                     onClick={() => setSelectedDate('')}
-                    className="ml-1 text-zinc-400 hover:text-zinc-600"
+                    className="ml-2 text-app-text-dim hover:text-app-fg"
                   >
-                    <X size={10} />
+                    <X size={12} />
                   </button>
                 )}
               </div>
+              
               <select 
-                className="text-[10px] font-bold uppercase tracking-widest bg-transparent border-none focus:ring-0 text-zinc-400 cursor-pointer hover:text-zinc-900 transition-colors"
+                className="text-[10px] font-bold uppercase tracking-widest bg-app-bg/50 rounded-xl px-3 py-2 border border-app-border/50 focus:ring-0 text-app-fg cursor-pointer transition-all"
                 value={selectedProjectId || ''}
                 onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : null)}
               >
@@ -218,23 +218,24 @@ export function Checklist() {
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
+
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || isSubmitting}
+                className="bg-app-accent text-app-bg px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:opacity-90 disabled:opacity-50 transition-all"
+              >
+                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "ADICIONAR"}
+              </button>
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={!inputValue.trim() || isSubmitting}
-            className="vercel-button-primary min-w-[80px] flex items-center justify-center"
-          >
-            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : "Add"}
-          </button>
         </form>
       </div>
 
-      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
+      <div className="pt-4">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-full text-zinc-400">
-            <Loader2 size={32} className="animate-spin mb-4" />
-            <p className="text-sm">Sincronizando...</p>
+          <div className="flex flex-col items-center justify-center py-20 text-app-text-dim">
+            <Loader2 size={32} className="animate-spin mb-4 text-app-accent" />
+            <p className="text-xs font-bold uppercase tracking-widest">Carregando tarefas...</p>
           </div>
         ) : (
           <DndContext
@@ -246,16 +247,15 @@ export function Checklist() {
               items={filteredTodos.map(t => t.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="flex flex-col flex-wrap gap-3 h-full content-start items-start">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <AnimatePresence initial={false}>
                   {filteredTodos.map((todo) => (
                     <motion.div
                       key={todo.id}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.98 }}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
                       layout
-                      className="w-80 shrink-0"
                     >
                       <SortableTodoItem
                         todo={todo}
@@ -268,8 +268,8 @@ export function Checklist() {
                   ))}
                 </AnimatePresence>
                 {filteredTodos.length === 0 && (
-                  <div className="flex items-center justify-center h-full border-2 border-dashed border-zinc-100 rounded-xl w-80">
-                    <p className="text-zinc-400 text-sm px-6 text-center">Nenhuma tarefa encontrada.</p>
+                  <div className="col-span-full flex flex-col items-center justify-center py-20 border-2 border-dashed border-app-border rounded-3xl bg-app-card/20">
+                    <p className="text-app-text-dim text-sm font-medium">Nenhuma tarefa encontrada.</p>
                   </div>
                 )}
               </div>

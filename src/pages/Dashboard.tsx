@@ -4,14 +4,31 @@ import { Calendar, CheckSquare, FolderKanban, ChevronRight } from 'lucide-react'
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAgentStore } from '../store/useAgentStore';
-import { Bot, Zap, TrendingUp, AlertCircle } from 'lucide-react';
+import { Bot, Zap, TrendingUp, AlertCircle, Database, Loader2 } from 'lucide-react';
+import { api } from '../services/api';
 
 export function Dashboard() {
-  const { switchContext, agents } = useAgentStore();
+  const { switchContext, agents, notifyChange } = useAgentStore();
+  const [isSeeding, setIsSeeding] = React.useState(false);
 
   useEffect(() => {
     switchContext('system');
   }, [switchContext]);
+
+  const handleSeed = async () => {
+    // Using a simple state-based confirmation would be better, but for now let's just execute
+    setIsSeeding(true);
+    try {
+      await api.todos.seed();
+      notifyChange('Dados de exemplo injetados no sistema. Sincronia concluída.');
+      // Instead of reload, we could just re-fetch, but reload is easier for now
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Seed failed:', error);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   const systemAgent = agents.find(a => a.type === 'system');
   const directors = agents.filter(a => a.type === 'director');
@@ -45,93 +62,90 @@ export function Dashboard() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 space-y-16">
-      {/* Status Reports Hierárquicos */}
+    <div className="space-y-12">
+      {/* Welcome Section */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-8"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-6"
       >
-        <div className="flex items-end justify-between border-b border-app-border pb-6">
-          <div>
-            <h2 className="text-3xl font-display font-black text-app-fg tracking-tighter flex items-center gap-3">
-              <Bot className="text-app-accent" size={32} />
-              CÓRTEX DE CONSCIÊNCIA
-            </h2>
-            <p className="text-sm text-app-text-dim mt-2">Visão macro do império processada por <span className="text-app-fg font-medium">{systemAgent?.name || 'Life Thomas (Deus)'}</span>.</p>
-          </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-app-accent/10 border border-app-accent/20 rounded-full text-[10px] font-black text-app-accent uppercase tracking-[0.2em]">
-            <Zap size={12} className="animate-pulse" />
-            Sincronia Ativa
-          </div>
+        <div>
+          <h1 className="text-4xl font-bold text-app-fg tracking-tight">
+            Bem-vindo, <span className="text-app-accent">Thomas</span>
+          </h1>
+          <p className="text-app-text-dim mt-2 font-medium">
+            Aqui está o resumo do seu império hoje.
+          </p>
         </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleSeed}
+            disabled={isSeeding}
+            className="flex items-center gap-2 px-5 py-2.5 bg-app-card border border-app-border rounded-xl text-xs font-bold text-app-fg hover:border-app-accent/30 hover:bg-app-bg transition-all disabled:opacity-50"
+          >
+            {isSeeding ? <Loader2 className="animate-spin" size={14} /> : <Database size={14} />}
+            Resetar Dados
+          </button>
+        </div>
+      </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {cards.map((card) => (
+          <Link 
+            key={card.id}
+            to={card.path}
+            className="group p-8 bg-app-card border border-app-border rounded-3xl hover:border-app-accent/30 transition-all duration-500 relative overflow-hidden"
+          >
+            <div className={cn("mb-6 w-12 h-12 rounded-2xl bg-app-bg border border-app-border flex items-center justify-center transition-all duration-500 group-hover:scale-110", card.color)}>
+              <card.icon size={24} />
+            </div>
+            <h3 className="text-xl font-bold text-app-fg mb-2">{card.title}</h3>
+            <p className="text-sm text-app-text-dim leading-relaxed">{card.description}</p>
+            <ChevronRight size={20} className="absolute bottom-8 right-8 text-app-text-dim/20 group-hover:text-app-accent group-hover:translate-x-1 transition-all" />
+          </Link>
+        ))}
+      </div>
+
+      {/* Agents/Directors Section */}
+      <div className="space-y-6">
+        <h2 className="text-sm font-bold uppercase tracking-widest text-app-text-dim">Agentes Ativos</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {directors.map(director => (
-            <div key={director.id} className="bento-grid-item p-8 group">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-app-bg rounded-2xl flex items-center justify-center border border-app-border group-hover:border-app-accent/50 transition-colors">
-                    <TrendingUp className="text-app-accent" size={24} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-app-accent uppercase tracking-widest mb-1">Diretoria Estratégica</p>
-                    <h3 className="text-lg font-display font-bold text-app-fg">{director.name}</h3>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                  <span className="text-[10px] font-bold text-app-text-dim uppercase tracking-tighter">Operacional</span>
-                </div>
+            <div key={director.id} className="p-8 bg-app-card border border-app-border rounded-3xl flex items-start gap-6">
+              <div className="w-12 h-12 bg-app-bg rounded-2xl flex items-center justify-center border border-app-border shrink-0">
+                <TrendingUp className="text-app-accent" size={24} />
               </div>
-              <div className="space-y-6">
-                <p className="text-sm text-app-text-dim leading-relaxed font-serif italic opacity-80">
-                  "Monitorando {projects.length} projetos ativos. Alinhamento estratégico mantido com o núcleo central. O fluxo de capital intelectual está otimizado."
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-bold text-app-fg">{director.name}</h3>
+                  <p className="text-xs font-bold text-app-accent uppercase tracking-widest mt-1">Diretoria Estratégica</p>
+                </div>
+                <p className="text-sm text-app-text-dim leading-relaxed italic">
+                  "Monitorando {projects.length} projetos ativos. O fluxo de capital intelectual está otimizado."
                 </p>
-                <div className="flex gap-3">
-                  <span className="px-3 py-1.5 bg-app-bg border border-app-border rounded-lg text-[10px] font-bold text-app-text-dim uppercase tracking-wider">
-                    {projects.length} Projetos
-                  </span>
-                  <span className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
-                    Eficiência: 94%
-                  </span>
+                <div className="flex gap-6 pt-2">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-app-text-dim uppercase tracking-widest">Projetos</span>
+                    <span className="text-lg font-bold text-app-fg">{projects.length}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-app-text-dim uppercase tracking-widest">Eficiência</span>
+                    <span className="text-lg font-bold text-emerald-500">94%</span>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
           
           {directors.length === 0 && (
-            <div className="col-span-2 py-20 bento-grid-item border-dashed flex flex-col items-center justify-center text-app-text-dim">
-              <AlertCircle size={40} className="mb-4 opacity-20" />
-              <p className="text-sm font-medium tracking-widest uppercase">Aguardando relatórios dos diretores...</p>
+            <div className="col-span-2 py-12 border-2 border-dashed border-app-border rounded-3xl flex flex-col items-center justify-center text-app-text-dim">
+              <AlertCircle size={32} className="mb-3 opacity-20" />
+              <p className="text-sm font-medium">Nenhum agente ativo no momento.</p>
             </div>
           )}
         </div>
-      </motion.div>
-
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-8"
-      >
-        {cards.map((card) => (
-          <Link 
-            key={card.id}
-            to={card.path}
-            className="bento-grid-item p-8 group"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className={cn("w-12 h-12 rounded-2xl bg-app-bg border border-app-border flex items-center justify-center transition-all group-hover:scale-110 group-hover:border-app-accent/20", card.color)}>
-                <card.icon size={24} />
-              </div>
-              <ChevronRight size={20} className="text-app-text-dim group-hover:text-app-fg group-hover:translate-x-1 transition-all" />
-            </div>
-            <h3 className="text-xl font-display font-bold text-app-fg mb-2">{card.title}</h3>
-            <p className="text-sm text-app-text-dim leading-relaxed">{card.description}</p>
-          </Link>
-        ))}
-      </motion.div>
+      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db, pool } from './src/db/index.ts';
-import { projects, todos } from './src/db/schema.ts';
+import { projects, todos, teamMembers, objectives, goals } from './src/db/schema.ts';
 import { eq, asc, desc, sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import 'dotenv/config';
@@ -18,26 +18,64 @@ async function startServer() {
   console.log('🚀 Server starting...');
   
   // --- Database Connection Check ---
+  let isMockMode = false;
   try {
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL is not defined.');
     }
+    console.log('DATABASE_URL starts with:', process.env.DATABASE_URL.substring(0, 15));
     const client = await pool.connect();
     console.log('✅ Database connection established successfully.');
     client.release();
   } catch (error) {
-    console.error('❌ CRITICAL DATABASE ERROR:', error instanceof Error ? error.message : String(error));
-    console.error('👉 The application will likely fail. Please check your DATABASE_URL in Settings > Secrets.');
+    isMockMode = true;
+    console.error('⚠️ MOCK MODE ACTIVATED:', error instanceof Error ? error.message : String(error));
+    console.warn('👉 Using in-memory mock data for UI/UX testing.');
   }
 
+  // Mock Data Store
+  const mockData = {
+    projects: [
+      { id: 1, name: 'OPERAÇÃO ALPHA: DOMINAÇÃO', description: 'Estratégia macro para escala global.', color: '#F59E0B' },
+      { id: 2, name: 'BIOHACKING & PERFORMANCE', description: 'Otimização biológica.', color: '#10B981' }
+    ],
+    todos: [
+      { id: 1, text: 'Análise de Concorrência: Setor de Agentes IA', completed: 0, position: 0, projectId: 1, dueDate: new Date().toISOString() },
+      { id: 2, text: 'Refinar Motor de Execução (Core Engine)', completed: 0, position: 1, projectId: 1, dueDate: new Date().toISOString() },
+      { id: 3, text: 'Protocolo de Suplementação Mensal', completed: 1, position: 0, projectId: 2, dueDate: new Date().toISOString() }
+    ],
+    attachments: [
+      { id: 1, todoId: 1, type: 'link', content: 'https://openai.com/research', metadata: { title: 'OpenAI Research' }, createdAt: new Date().toISOString() },
+      { id: 2, todoId: 1, type: 'text', content: 'INSIGHT: Foco em raciocínio sistêmico.', metadata: {}, createdAt: new Date().toISOString() },
+      { id: 3, todoId: 2, type: 'code', content: 'export const scale = () => {};', metadata: { language: 'typescript' }, createdAt: new Date().toISOString() },
+      { id: 4, todoId: 3, type: 'image', content: 'https://picsum.photos/seed/health/800/600', metadata: { caption: 'Biomarcadores' }, createdAt: new Date().toISOString() }
+    ],
+    agents: [
+      { id: 1, name: 'Life Thomas (Deus)', type: 'system', description: 'Núcleo central de consciência.', status: 'active' },
+      { id: 2, name: 'Diretor de Operações', type: 'director', description: 'Gestão tática do império.', status: 'active' }
+    ],
+    teamMembers: [
+      { id: 1, name: 'João Silva', role: 'Gestor de Tráfego', specialty: 'Google Ads & Meta', email: 'joao@empire.com', whatsapp: '11999999999', avatar: 'https://i.pravatar.cc/150?u=joao', status: 'available' },
+      { id: 2, name: 'Ana Costa', role: 'Designer UI/UX', specialty: 'Figma & Branding', email: 'ana@empire.com', whatsapp: '11888888888', avatar: 'https://i.pravatar.cc/150?u=ana', status: 'focused' }
+    ],
+    objectives: [
+      { id: 1, title: 'DOMINAÇÃO DE MERCADO 2026', description: 'Tornar-se a maior referência em IA aplicada a negócios.', status: 'active' }
+    ],
+    goals: [
+      { id: 1, objectiveId: 1, title: 'Faturamento R$ 1M', targetValue: '1000000', currentValue: '250000', deadline: '2026-12-31', status: 'active' }
+    ]
+  };
+
   // --- Auto-Migration ---
-  try {
-    const migrationsPath = path.join(process.cwd(), 'drizzle');
-    console.log(`🔄 Running database migrations from: ${migrationsPath}`);
-    await migrate(db, { migrationsFolder: migrationsPath });
-    console.log('✅ Migrations completed successfully');
-  } catch (error) {
-    console.error('❌ Migration failed:', error);
+  if (!isMockMode) {
+    try {
+      const migrationsPath = path.join(process.cwd(), 'drizzle');
+      console.log(`🔄 Running database migrations from: ${migrationsPath}`);
+      await migrate(db, { migrationsFolder: migrationsPath });
+      console.log('✅ Migrations completed successfully');
+    } catch (error) {
+      console.error('❌ Migration failed:', error);
+    }
   }
 
   app.use(express.json());
@@ -45,13 +83,21 @@ async function startServer() {
   // --- Health Check ---
   app.get('/api/health', async (req, res) => {
     try {
+      if (isMockMode) {
+        return res.json({ status: 'ok', database: 'mocked', env: 'MISSING' });
+      }
       await db.execute(sql`SELECT 1`);
-      res.json({ status: 'ok', database: 'connected' });
+      res.json({ 
+        status: 'ok', 
+        database: 'connected',
+        env: process.env.DATABASE_URL ? `SET (${process.env.DATABASE_URL.substring(0, 10)}...)` : 'MISSING'
+      });
     } catch (error) {
       res.status(500).json({ 
         status: 'error', 
         database: 'disconnected', 
         message: error instanceof Error ? error.message : String(error),
+        env: process.env.DATABASE_URL ? `SET (${process.env.DATABASE_URL.substring(0, 10)}...)` : 'MISSING',
         hint: 'Check if DATABASE_URL is correct and SSL is enabled if required.'
       });
     }
@@ -118,6 +164,49 @@ async function startServer() {
           "metadata" jsonb,
           "created_at" timestamp DEFAULT now()
         );
+        CREATE TABLE IF NOT EXISTS "team_members" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "name" text NOT NULL,
+          "role" text NOT NULL,
+          "specialty" text,
+          "email" text,
+          "whatsapp" text,
+          "avatar" text,
+          "status" text DEFAULT 'available',
+          "created_at" timestamp DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS "objectives" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "title" text NOT NULL,
+          "description" text,
+          "status" text DEFAULT 'active',
+          "created_at" timestamp DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS "goals" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "objective_id" integer REFERENCES "objectives"("id") ON DELETE CASCADE,
+          "title" text NOT NULL,
+          "target_value" text,
+          "current_value" text DEFAULT '0',
+          "deadline" text,
+          "status" text DEFAULT 'active',
+          "created_at" timestamp DEFAULT now()
+        );
+        -- Update todos table if it exists but missing columns
+        DO $$ 
+        BEGIN 
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'todos') THEN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'todos' AND column_name = 'priority') THEN
+              ALTER TABLE "todos" ADD COLUMN "priority" text DEFAULT 'medium';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'todos' AND column_name = 'assigned_to') THEN
+              ALTER TABLE "todos" ADD COLUMN "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'todos' AND column_name = 'goal_id') THEN
+              ALTER TABLE "todos" ADD COLUMN "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL;
+            END IF;
+          END IF;
+        END $$;
       `);
       res.json({ success: true, message: 'Database tables and extensions ensured.' });
     } catch (error) {
@@ -128,6 +217,7 @@ async function startServer() {
 
   // --- Project Routes ---
   app.get('/api/projects', async (req, res) => {
+    if (isMockMode) return res.json(mockData.projects);
     try {
       const allProjects = await db.select().from(projects);
       res.json(allProjects);
@@ -239,6 +329,7 @@ async function startServer() {
 
   // --- Agent Routes ---
   app.get('/api/agents', async (req, res) => {
+    if (isMockMode) return res.json(mockData.agents);
     try {
       const { agents: agentsTable } = await import('./src/db/schema.ts');
       const allAgents = await db.select().from(agentsTable);
@@ -493,17 +584,150 @@ async function startServer() {
     }
   });
 
+  // --- Team Routes ---
+  app.get('/api/team', async (req, res) => {
+    if (isMockMode) return res.json(mockData.teamMembers);
+    try {
+      const allMembers = await db.select().from(teamMembers);
+      res.json(allMembers);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch team members' });
+    }
+  });
+
+  app.post('/api/team', async (req, res) => {
+    try {
+      const [newMember] = await db.insert(teamMembers).values(req.body).returning();
+      res.status(201).json(newMember);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create team member' });
+    }
+  });
+
+  app.patch('/api/team/:id', async (req, res) => {
+    try {
+      const [updatedMember] = await db.update(teamMembers)
+        .set(req.body)
+        .where(eq(teamMembers.id, Number(req.params.id)))
+        .returning();
+      res.json(updatedMember);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update team member' });
+    }
+  });
+
+  app.delete('/api/team/:id', async (req, res) => {
+    try {
+      await db.delete(teamMembers).where(eq(teamMembers.id, Number(req.params.id)));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete team member' });
+    }
+  });
+
+  // --- Strategy Routes (Objectives & Goals) ---
+  app.get('/api/objectives', async (req, res) => {
+    if (isMockMode) return res.json(mockData.objectives);
+    try {
+      const allObjectives = await db.select().from(objectives);
+      res.json(allObjectives);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch objectives' });
+    }
+  });
+
+  app.post('/api/objectives', async (req, res) => {
+    try {
+      const [newObjective] = await db.insert(objectives).values(req.body).returning();
+      res.status(201).json(newObjective);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create objective' });
+    }
+  });
+
+  app.patch('/api/objectives/:id', async (req, res) => {
+    try {
+      const [updatedObjective] = await db.update(objectives)
+        .set(req.body)
+        .where(eq(objectives.id, Number(req.params.id)))
+        .returning();
+      res.json(updatedObjective);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update objective' });
+    }
+  });
+
+  app.delete('/api/objectives/:id', async (req, res) => {
+    try {
+      await db.delete(objectives).where(eq(objectives.id, Number(req.params.id)));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete objective' });
+    }
+  });
+
+  app.get('/api/goals', async (req, res) => {
+    if (isMockMode) return res.json(mockData.goals);
+    try {
+      const allGoals = await db.select().from(goals);
+      res.json(allGoals);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch goals' });
+    }
+  });
+
+  app.post('/api/goals', async (req, res) => {
+    try {
+      const [newGoal] = await db.insert(goals).values(req.body).returning();
+      res.status(201).json(newGoal);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create goal' });
+    }
+  });
+
+  app.patch('/api/goals/:id', async (req, res) => {
+    try {
+      const [updatedGoal] = await db.update(goals)
+        .set(req.body)
+        .where(eq(goals.id, Number(req.params.id)))
+        .returning();
+      res.json(updatedGoal);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update goal' });
+    }
+  });
+
+  app.delete('/api/goals/:id', async (req, res) => {
+    try {
+      await db.delete(goals).where(eq(goals.id, Number(req.params.id)));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete goal' });
+    }
+  });
+
   // --- Todo Routes ---
   app.get('/api/todos', async (req, res) => {
     try {
-      const { projectId } = req.query;
+      const { projectId, assignedTo, goalId } = req.query;
+      if (isMockMode) {
+        let filtered = mockData.todos;
+        if (projectId) filtered = filtered.filter(t => t.projectId === Number(projectId));
+        if (assignedTo) filtered = filtered.filter(t => (t as any).assignedTo === Number(assignedTo));
+        if (goalId) filtered = filtered.filter(t => (t as any).goalId === Number(goalId));
+        return res.json(filtered);
+      }
+      
+      let conditions = [];
+      if (projectId) conditions.push(eq(todos.projectId, Number(projectId)));
+      if (assignedTo) conditions.push(eq(todos.assignedTo, Number(assignedTo)));
+      if (goalId) conditions.push(eq(todos.goalId, Number(goalId)));
+
       let query = db.select().from(todos).orderBy(asc(todos.position));
       
-      if (projectId) {
-        const allTodos = await db.select().from(todos)
-          .where(eq(todos.projectId, Number(projectId)))
-          .orderBy(asc(todos.position));
-        return res.json(allTodos);
+      if (conditions.length > 0) {
+        // @ts-ignore
+        query = query.where(sql`${sql.join(conditions, sql` AND `)}`);
       }
       
       const allTodos = await query;
@@ -639,6 +863,9 @@ async function startServer() {
   // --- Todo Attachment Routes ---
   app.get('/api/todos/:id/attachments', async (req, res) => {
     const { id } = req.params;
+    if (isMockMode) {
+      return res.json(mockData.attachments.filter(a => a.todoId === Number(id)));
+    }
     try {
       const { todoAttachments: attachmentsTable } = await import('./src/db/schema.ts');
       const attachments = await db.select().from(attachmentsTable).where(eq(attachmentsTable.todoId, Number(id)));
@@ -676,6 +903,108 @@ async function startServer() {
     } catch (error) {
       console.error('Failed to delete attachment:', error);
       res.status(500).json({ error: 'Failed to delete attachment' });
+    }
+  });
+
+  app.post('/api/seed', async (req, res) => {
+    if (isMockMode) {
+      return res.json({ success: true, message: 'Mock data is already active. No database to seed.' });
+    }
+    try {
+      const { projects: projectsTable, todos: todosTable, todoAttachments: attachmentsTable } = await import('./src/db/schema.ts');
+      
+      // 1. Create Projects
+      const [p1] = await db.insert(projectsTable).values({
+        name: 'OPERAÇÃO ALPHA: DOMINAÇÃO',
+        description: 'Estratégia macro para escala global e consolidação de mercado.',
+        color: '#F59E0B', // Amber
+      }).returning();
+
+      const [p2] = await db.insert(projectsTable).values({
+        name: 'BIOHACKING & PERFORMANCE',
+        description: 'Otimização biológica para sustentar alta carga cognitiva.',
+        color: '#10B981', // Emerald
+      }).returning();
+
+      // 2. Create Todos for Project 1
+      const [t1] = await db.insert(todosTable).values({
+        text: 'Análise de Concorrência: Setor de Agentes IA',
+        projectId: p1.id,
+        position: 0,
+        dueDate: new Date().toISOString().split('T')[0],
+      }).returning();
+
+      const [t2] = await db.insert(todosTable).values({
+        text: 'Refinar Motor de Execução (Core Engine)',
+        projectId: p1.id,
+        position: 1,
+        dueDate: new Date().toISOString().split('T')[0],
+      }).returning();
+
+      // 3. Create Todos for Project 2
+      const [t3] = await db.insert(todosTable).values({
+        text: 'Protocolo de Suplementação Mensal',
+        projectId: p2.id,
+        position: 0,
+        dueDate: new Date().toISOString().split('T')[0],
+      }).returning();
+
+      // 4. Add Attachments to t1
+      await db.insert(attachmentsTable).values([
+        {
+          todoId: t1.id,
+          type: 'link',
+          content: 'https://openai.com/research',
+          metadata: { title: 'OpenAI Research' }
+        },
+        {
+          todoId: t1.id,
+          type: 'text',
+          content: 'INSIGHT: O foco deles mudou para raciocínio sistêmico. Precisamos de uma abordagem mais agressiva em execução paralela.',
+          metadata: {}
+        }
+      ]);
+
+      // 5. Add Attachments to t2
+      await db.insert(attachmentsTable).values([
+        {
+          todoId: t2.id,
+          type: 'code',
+          content: 'export const scaleEngine = async (load: number) => {\n  const nodes = Math.ceil(load / 1000);\n  return await deployNodes(nodes);\n};',
+          metadata: { language: 'typescript' }
+        },
+        {
+          todoId: t2.id,
+          type: 'repo',
+          content: 'https://github.com/empire/core-engine',
+          metadata: {}
+        }
+      ]);
+
+      // 6. Add Attachments to t3
+      await db.insert(attachmentsTable).values([
+        {
+          todoId: t3.id,
+          type: 'image',
+          content: 'https://picsum.photos/seed/health/800/600',
+          metadata: { caption: 'Tabela de Biomarcadores' }
+        },
+        {
+          todoId: t3.id,
+          type: 'checklist',
+          content: '- Magnésio Treonato (Noite)\n- Vitamina D3 + K2 (Manhã)\n- NMN 500mg (Jejum)',
+          metadata: {}
+        }
+      ]);
+
+      res.json({ success: true, message: 'Seed completed successfully!' });
+    } catch (error) {
+      console.error('Seed failed:', error);
+      res.status(500).json({ 
+        error: 'Seed failed', 
+        details: error instanceof Error ? error.message : String(error),
+        fullError: JSON.parse(JSON.stringify(error, Object.getOwnPropertyNames(error)))
+      });
     }
   });
 

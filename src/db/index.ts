@@ -4,6 +4,7 @@ import * as schema from './schema.ts';
 import 'dotenv/config';
 
 const databaseUrl = process.env.DATABASE_URL;
+console.log('DATABASE_URL in index.ts:', databaseUrl ? 'SET' : 'MISSING');
 
 if (!databaseUrl) {
   console.error('❌ ERROR: DATABASE_URL is not defined in environment variables.');

@@ -35,7 +35,7 @@ export function Hoje() {
 
   const handleToggleTodo = async (id: number, completed: boolean) => {
     try {
-      const updatedTodo = await api.todos.update(id, { completed: completed ? 1 : 0 });
+      const updatedTodo = await api.todos.update(id, { completed });
       setTodos(todos.map(t => t.id === id ? updatedTodo : t));
     } catch (error) {
       console.error('Failed to toggle todo:', error);
@@ -68,37 +68,52 @@ export function Hoje() {
   const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
   const activeTodos = todos.filter(t => {
     if (t.completed) return false;
-    if (!t.due_date) return false;
-    return t.due_date <= today;
+    if (!t.dueDate) return false;
+    return t.dueDate <= today;
   });
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6">
-      <header className="mb-12 border-b border-app-border pb-8">
-        <h1 className="text-4xl font-display font-black text-app-fg tracking-tighter">FOCO OPERACIONAL</h1>
-        <p className="text-app-text-dim mt-2">Tarefas críticas para a manifestação do império hoje.</p>
+    <div className="space-y-8">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-bold text-app-fg tracking-tight uppercase">Foco Operacional</h1>
+          <p className="text-app-text-dim mt-1 text-sm font-medium">Tarefas críticas para hoje.</p>
+        </div>
+        <div className="flex items-center gap-2 bg-app-card px-4 py-2 rounded-xl border border-app-border">
+          <div className="w-2 h-2 rounded-full bg-app-accent animate-pulse" />
+          <span className="text-[10px] font-bold text-app-fg uppercase tracking-widest">Sincronização Ativa</span>
+        </div>
       </header>
 
-      <div className="bento-grid-item p-8">
-        <div className="space-y-4">
-          {isLoading ? (
-            <div className="flex justify-center py-20"><Loader2 className="animate-spin text-app-accent" size={48} /></div>
-          ) : activeTodos.map((todo) => (
-            <SortableTodoItem 
-              key={todo.id}
-              todo={todo}
-              onToggle={handleToggleTodo}
-              onDelete={handleDeleteTodo}
-              onUpdate={handleUpdateTodo}
-              projects={projects}
-            />
-          ))}
-          {!isLoading && activeTodos.length === 0 && (
-            <div className="text-center py-20 text-app-text-dim text-sm italic font-serif">
-              "A quietude precede a grande escala. Todas as diretrizes do dia foram cumpridas."
+      <div className="pt-4">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-app-text-dim">
+            <Loader2 className="animate-spin mb-4 text-app-accent" size={32} />
+            <p className="text-xs font-bold uppercase tracking-widest">Processando Prioridades...</p>
+          </div>
+        ) : activeTodos.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activeTodos.map((todo) => (
+              <SortableTodoItem 
+                key={todo.id}
+                todo={todo}
+                onToggle={handleToggleTodo}
+                onDelete={handleDeleteTodo}
+                onUpdate={handleUpdateTodo}
+                projects={projects}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="p-20 flex flex-col items-center justify-center text-center bg-app-card/20 border-2 border-dashed border-app-border rounded-3xl">
+            <div className="text-app-text-dim text-lg italic font-serif max-w-md">
+              "Todas as tarefas do dia foram cumpridas com precisão."
             </div>
-          )}
-        </div>
+            <div className="mt-8 text-[10px] font-bold uppercase tracking-[0.4em] text-app-accent">
+              Sistema em Estado de Prontidão
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
