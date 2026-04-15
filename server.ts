@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { db, pool } from './src/db/index.ts';
 import { projects, todos, teamMembers, objectives, goals } from './src/db/schema.ts';
-import { eq, asc, desc, sql } from 'drizzle-orm';
+import { eq, asc, desc, sql, and } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import 'dotenv/config';
 
@@ -40,9 +40,9 @@ async function startServer() {
       { id: 2, name: 'BIOHACKING & PERFORMANCE', description: 'Otimização biológica.', color: '#10B981' }
     ],
     todos: [
-      { id: 1, text: 'Análise de Concorrência: Setor de Agentes IA', completed: 0, position: 0, projectId: 1, dueDate: new Date().toISOString() },
-      { id: 2, text: 'Refinar Motor de Execução (Core Engine)', completed: 0, position: 1, projectId: 1, dueDate: new Date().toISOString() },
-      { id: 3, text: 'Protocolo de Suplementação Mensal', completed: 1, position: 0, projectId: 2, dueDate: new Date().toISOString() }
+      { id: 1, text: 'Análise de Concorrência: Setor de Agentes IA', completed: false, position: 0, projectId: 1, dueDate: new Date().toISOString() },
+      { id: 2, text: 'Refinar Motor de Execução (Core Engine)', completed: false, position: 1, projectId: 1, dueDate: new Date().toISOString() },
+      { id: 3, text: 'Protocolo de Suplementação Mensal', completed: true, position: 0, projectId: 2, dueDate: new Date().toISOString() }
     ],
     attachments: [
       { id: 1, todoId: 1, type: 'link', content: 'https://openai.com/research', metadata: { title: 'OpenAI Research' }, createdAt: new Date().toISOString() },
@@ -124,6 +124,34 @@ async function startServer() {
           "color" text DEFAULT '#000000',
           "created_at" timestamp DEFAULT now()
         );
+        CREATE TABLE IF NOT EXISTS "team_members" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "name" text NOT NULL,
+          "role" text NOT NULL,
+          "specialty" text,
+          "email" text,
+          "whatsapp" text,
+          "avatar" text,
+          "status" text DEFAULT 'available',
+          "created_at" timestamp DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS "objectives" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "title" text NOT NULL,
+          "description" text,
+          "status" text DEFAULT 'active',
+          "created_at" timestamp DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS "goals" (
+          "id" serial PRIMARY KEY NOT NULL,
+          "objective_id" integer REFERENCES "objectives"("id") ON DELETE CASCADE,
+          "title" text NOT NULL,
+          "target_value" text,
+          "current_value" text DEFAULT '0',
+          "deadline" text,
+          "status" text DEFAULT 'active',
+          "created_at" timestamp DEFAULT now()
+        );
         CREATE TABLE IF NOT EXISTS "todos" (
           "id" serial PRIMARY KEY NOT NULL,
           "text" text NOT NULL,
@@ -131,6 +159,9 @@ async function startServer() {
           "position" integer NOT NULL,
           "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
           "due_date" text,
+          "priority" text DEFAULT 'medium',
+          "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL,
+          "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL,
           "created_at" timestamp DEFAULT now()
         );
         CREATE TABLE IF NOT EXISTS "agents" (
@@ -164,35 +195,7 @@ async function startServer() {
           "metadata" jsonb,
           "created_at" timestamp DEFAULT now()
         );
-        CREATE TABLE IF NOT EXISTS "team_members" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "name" text NOT NULL,
-          "role" text NOT NULL,
-          "specialty" text,
-          "email" text,
-          "whatsapp" text,
-          "avatar" text,
-          "status" text DEFAULT 'available',
-          "created_at" timestamp DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS "objectives" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "title" text NOT NULL,
-          "description" text,
-          "status" text DEFAULT 'active',
-          "created_at" timestamp DEFAULT now()
-        );
-        CREATE TABLE IF NOT EXISTS "goals" (
-          "id" serial PRIMARY KEY NOT NULL,
-          "objective_id" integer REFERENCES "objectives"("id") ON DELETE CASCADE,
-          "title" text NOT NULL,
-          "target_value" text,
-          "current_value" text DEFAULT '0',
-          "deadline" text,
-          "status" text DEFAULT 'active',
-          "created_at" timestamp DEFAULT now()
-        );
-        -- Update todos table if it exists but missing columns
+        -- Ensure columns exist if table was created with old schema
         DO $$ 
         BEGIN 
           IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'todos') THEN
@@ -236,6 +239,34 @@ async function startServer() {
               "color" text DEFAULT '#000000',
               "created_at" timestamp DEFAULT now()
             );
+            CREATE TABLE IF NOT EXISTS "team_members" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "name" text NOT NULL,
+              "role" text NOT NULL,
+              "specialty" text,
+              "email" text,
+              "whatsapp" text,
+              "avatar" text,
+              "status" text DEFAULT 'available',
+              "created_at" timestamp DEFAULT now()
+            );
+            CREATE TABLE IF NOT EXISTS "objectives" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "title" text NOT NULL,
+              "description" text,
+              "status" text DEFAULT 'active',
+              "created_at" timestamp DEFAULT now()
+            );
+            CREATE TABLE IF NOT EXISTS "goals" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "objective_id" integer REFERENCES "objectives"("id") ON DELETE CASCADE,
+              "title" text NOT NULL,
+              "target_value" text,
+              "current_value" text DEFAULT '0',
+              "deadline" text,
+              "status" text DEFAULT 'active',
+              "created_at" timestamp DEFAULT now()
+            );
             CREATE TABLE IF NOT EXISTS "todos" (
               "id" serial PRIMARY KEY NOT NULL,
               "text" text NOT NULL,
@@ -243,6 +274,9 @@ async function startServer() {
               "position" integer NOT NULL,
               "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
               "due_date" text,
+              "priority" text DEFAULT 'medium',
+              "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL,
+              "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL,
               "created_at" timestamp DEFAULT now()
             );
           `);
@@ -805,8 +839,7 @@ async function startServer() {
       let query = db.select().from(todos).orderBy(asc(todos.position));
       
       if (conditions.length > 0) {
-        // @ts-ignore
-        query = query.where(sql`${sql.join(conditions, sql` AND `)}`);
+        query = query.where(and(...conditions)) as any;
       }
       
       const allTodos = await query;
@@ -826,6 +859,34 @@ async function startServer() {
               "color" text DEFAULT '#000000',
               "created_at" timestamp DEFAULT now()
             );
+            CREATE TABLE IF NOT EXISTS "team_members" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "name" text NOT NULL,
+              "role" text NOT NULL,
+              "specialty" text,
+              "email" text,
+              "whatsapp" text,
+              "avatar" text,
+              "status" text DEFAULT 'available',
+              "created_at" timestamp DEFAULT now()
+            );
+            CREATE TABLE IF NOT EXISTS "objectives" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "title" text NOT NULL,
+              "description" text,
+              "status" text DEFAULT 'active',
+              "created_at" timestamp DEFAULT now()
+            );
+            CREATE TABLE IF NOT EXISTS "goals" (
+              "id" serial PRIMARY KEY NOT NULL,
+              "objective_id" integer REFERENCES "objectives"("id") ON DELETE CASCADE,
+              "title" text NOT NULL,
+              "target_value" text,
+              "current_value" text DEFAULT '0',
+              "deadline" text,
+              "status" text DEFAULT 'active',
+              "created_at" timestamp DEFAULT now()
+            );
             CREATE TABLE IF NOT EXISTS "todos" (
               "id" serial PRIMARY KEY NOT NULL,
               "text" text NOT NULL,
@@ -833,6 +894,9 @@ async function startServer() {
               "position" integer NOT NULL,
               "project_id" integer REFERENCES "projects"("id") ON DELETE SET NULL,
               "due_date" text,
+              "priority" text DEFAULT 'medium',
+              "assigned_to" integer REFERENCES "team_members"("id") ON DELETE SET NULL,
+              "goal_id" integer REFERENCES "goals"("id") ON DELETE SET NULL,
               "created_at" timestamp DEFAULT now()
             );
           `);

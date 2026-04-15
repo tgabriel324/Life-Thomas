@@ -40,6 +40,7 @@ export function ProjectDetail() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'overview' | 'checklist'>('checklist');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchData = useCallback(async () => {
@@ -80,6 +81,7 @@ export function ProjectDetail() {
     if (!inputValue.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
+    setError(null);
     try {
       const newTodo = await api.todos.create({ 
         text: inputValue.trim(), 
@@ -91,6 +93,7 @@ export function ProjectDetail() {
       notifyChange(`Nova tarefa "${newTodo.text}" adicionada ao projeto ${project?.name}.`);
     } catch (error) {
       console.error('Failed to add todo:', error);
+      setError(error instanceof Error ? error.message : 'Falha ao adicionar tarefa');
     } finally {
       setIsSubmitting(false);
     }
@@ -196,6 +199,20 @@ export function ProjectDetail() {
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-rose-500/10 border border-rose-500/20 text-rose-500 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-between"
+          >
+            <span>{error}</span>
+            <button onClick={() => setError(null)}><X size={14} /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {activeTab === 'checklist' && (
         <div className="max-w-4xl mx-auto w-full">
