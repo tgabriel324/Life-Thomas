@@ -99,7 +99,7 @@ export function SortableTodoItem({
             )}>
               {todo.text}
             </span>
-            <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
               {project && (
                 <span className="text-[9px] font-bold uppercase tracking-widest text-app-accent">
                   {project.name}
@@ -110,6 +110,19 @@ export function SortableTodoItem({
                   <Calendar size={10} />
                   {new Date(todo.dueDate).toLocaleDateString('pt-BR')}
                 </span>
+              )}
+              {todo.tags && todo.tags.length > 0 && (
+                <div className="flex gap-1">
+                  {todo.tags.map(tag => (
+                    <span 
+                      key={tag.id}
+                      className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-app-accent/10 border border-app-accent/20 text-app-accent uppercase tracking-tighter"
+                      style={{ borderColor: `${tag.color}40`, color: tag.color, backgroundColor: `${tag.color}10` }}
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
           </div>

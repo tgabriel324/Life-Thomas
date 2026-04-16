@@ -14,7 +14,7 @@ import {
   Users,
   Target
 } from 'lucide-react';
-import { Todo, Project, TeamMember, Goal } from '../../types';
+import { Todo, Project, TeamMember, Goal, Tag as TagType } from '../../types';
 import { TaskAttachments } from './TaskAttachments';
 import { cn } from '../../lib/utils';
 import { api } from '../../services/api';
@@ -44,10 +44,14 @@ export function TodoModal({
   const [priority, setPriority] = useState(todo.priority || 'medium');
   const [assignedTo, setAssignedTo] = useState<number | null>(todo.assignedTo);
   const [goalId, setGoalId] = useState<number | null>(todo.goalId);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(todo.tags?.map(t => t.id) || []);
   const [isSaving, setIsSaving] = useState(false);
   
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [allTags, setAllTags] = useState<TagType[]>([]);
+  const [newTagName, setNewTagName] = useState('');
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -57,10 +61,12 @@ export function TodoModal({
       setPriority(todo.priority || 'medium');
       setAssignedTo(todo.assignedTo);
       setGoalId(todo.goalId);
+      setSelectedTagIds(todo.tags?.map(t => t.id) || []);
       
-      // Load team and goals
+      // Load team, goals, and tags
       api.team.getAll().then(setTeam);
       api.strategy.getGoals().then(setGoals);
+      api.tags.getAll().then(setAllTags);
     }
   }, [isOpen, todo]);
 
@@ -73,11 +79,37 @@ export function TodoModal({
         projectId,
         priority: priority as any,
         assignedTo,
-        goalId
-      });
+        goalId,
+        tagIds: selectedTagIds
+      } as any);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return;
+    try {
+      const newTag = await api.tags.create({ name: newTagName.trim() });
+      setAllTags([...allTags, newTag]);
+      setSelectedTagIds([...selectedTagIds, newTag.id]);
+      setNewTagName('');
+      setIsCreatingTag(false);
+      
+      // Update todo with new tag
+      await onUpdate(todo.id, { tagIds: [...selectedTagIds, newTag.id] } as any);
+    } catch (error) {
+      console.error('Failed to create tag:', error);
+    }
+  };
+
+  const toggleTag = (tagId: number) => {
+    const newIds = selectedTagIds.includes(tagId)
+      ? selectedTagIds.filter(id => id !== tagId)
+      : [...selectedTagIds, tagId];
+    
+    setSelectedTagIds(newIds);
+    onUpdate(todo.id, { tagIds: newIds } as any);
   };
 
   const project = projects.find(p => p.id === projectId);
@@ -239,6 +271,67 @@ export function TodoModal({
                       <option key={g.id} value={g.id}>{g.title}</option>
                     ))}
                   </select>
+                </div>
+
+                {/* Tags Section */}
+                <div className="col-span-2 space-y-3">
+                  <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-app-text-dim">
+                    <Tag size={12} />
+                    Etiquetas
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {allTags.map(tag => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleTag(tag.id)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border",
+                          selectedTagIds.includes(tag.id)
+                            ? "bg-app-accent/10 border-app-accent text-app-accent"
+                            : "bg-app-card border-app-border text-app-text-dim hover:border-app-accent/30"
+                        )}
+                        style={selectedTagIds.includes(tag.id) ? { borderColor: tag.color, color: tag.color, backgroundColor: `${tag.color}10` } : {}}
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                    
+                    {isCreatingTag ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={newTagName}
+                          onChange={(e) => setNewTagName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleCreateTag();
+                            if (e.key === 'Escape') setIsCreatingTag(false);
+                          }}
+                          className="bg-app-card border border-app-accent rounded-lg px-3 py-1 text-[10px] font-bold text-app-fg w-32"
+                          placeholder="Nome da tag..."
+                        />
+                        <button 
+                          onClick={handleCreateTag}
+                          className="p-1 text-app-accent hover:bg-app-accent/10 rounded-md"
+                        >
+                          <CheckCircle2 size={14} />
+                        </button>
+                        <button 
+                          onClick={() => setIsCreatingTag(false)}
+                          className="p-1 text-rose-500 hover:bg-rose-500/10 rounded-md"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setIsCreatingTag(true)}
+                        className="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-app-card border border-dashed border-app-border text-app-text-dim hover:border-app-accent hover:text-app-accent transition-all"
+                      >
+                        + Nova Etiqueta
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

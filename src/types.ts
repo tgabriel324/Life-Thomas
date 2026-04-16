@@ -15,6 +15,13 @@ export interface Todo {
   priority: 'low' | 'medium' | 'high' | 'critical';
   assignedTo: number | null;
   goalId: number | null;
+  tags?: Tag[];
+}
+
+export interface Tag {
+  id: number;
+  name: string;
+  color: string;
 }
 
 export interface TeamMember {

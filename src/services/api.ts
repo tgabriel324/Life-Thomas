@@ -1,4 +1,4 @@
-import { Todo, Project, TeamMember, Objective, Goal } from '../types';
+import { Todo, Project, TeamMember, Objective, Goal, Tag } from '../types';
 
 const API_BASE = '/api';
 
@@ -22,14 +22,14 @@ export const api = {
       return fetch(`${API_BASE}/todos${query ? `?${query}` : ''}`).then(handleResponse);
     },
     
-    create: (data: { text: string; projectId?: number | null; dueDate?: string | null; priority?: string; assignedTo?: number | null; goalId?: number | null }): Promise<Todo> =>
+    create: (data: { text: string; projectId?: number | null; dueDate?: string | null; priority?: string; assignedTo?: number | null; goalId?: number | null; tagIds?: number[] }): Promise<Todo> =>
       fetch(`${API_BASE}/todos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       }).then(handleResponse),
     
-    update: (id: number, updates: Partial<Todo>): Promise<Todo> =>
+    update: (id: number, updates: Partial<Todo> & { tagIds?: number[] }): Promise<Todo> =>
       fetch(`${API_BASE}/todos/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -67,6 +67,21 @@ export const api = {
 
     seed: (): Promise<any> =>
       fetch(`${API_BASE}/seed`, { method: 'POST' }).then(handleResponse),
+  },
+
+  tags: {
+    getAll: (): Promise<Tag[]> =>
+      fetch(`${API_BASE}/tags`).then(handleResponse),
+    create: (data: { name: string; color?: string }): Promise<Tag> =>
+      fetch(`${API_BASE}/tags`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).then(handleResponse),
+    delete: (id: number): Promise<void> =>
+      fetch(`${API_BASE}/tags/${id}`, { method: 'DELETE' }).then(res => {
+        if (!res.ok) throw new Error('Failed to delete tag');
+      }),
   },
   
   projects: {

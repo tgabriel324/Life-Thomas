@@ -92,3 +92,16 @@ export const todoAttachments = pgTable('todo_attachments', {
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+export const tags = pgTable('tags', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  color: text('color').default('#3B82F6'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const todoTags = pgTable('todo_tags', {
+  id: serial('id').primaryKey(),
+  todoId: integer('todo_id').references(() => todos.id, { onDelete: 'cascade' }),
+  tagId: integer('tag_id').references(() => tags.id, { onDelete: 'cascade' }),
+});

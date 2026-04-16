@@ -3,7 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { db, pool } from './src/db/index.ts';
-import { projects, todos, teamMembers, objectives, goals } from './src/db/schema.ts';
+import { projects, todos, teamMembers, objectives, goals, tags, todoTags } from './src/db/schema.ts';
 import { eq, asc, desc, sql, and } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import 'dotenv/config';
@@ -63,6 +63,16 @@ async function startServer() {
     ],
     goals: [
       { id: 1, objectiveId: 1, title: 'Faturamento R$ 1M', targetValue: '1000000', currentValue: '250000', deadline: '2026-12-31', status: 'active' }
+    ],
+    tags: [
+      { id: 1, name: 'ESTRATÉGICO', color: '#8B5CF6' },
+      { id: 2, name: 'ALTO LUCRO', color: '#10B981' },
+      { id: 3, name: 'DEEP WORK', color: '#3B82F6' },
+      { id: 4, name: 'QUICK WIN', color: '#F59E0B' }
+    ],
+    todoTags: [
+      { id: 1, todoId: 1, tagId: 1 },
+      { id: 2, todoId: 1, tagId: 2 }
     ]
   };
 
@@ -136,6 +146,17 @@ async function startServer() {
       "content" text NOT NULL,
       "metadata" jsonb,
       "created_at" timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "tags" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "name" text NOT NULL,
+      "color" text DEFAULT '#3B82F6',
+      "created_at" timestamp DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "todo_tags" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "todo_id" integer REFERENCES "todos"("id") ON DELETE CASCADE,
+      "tag_id" integer REFERENCES "tags"("id") ON DELETE CASCADE
     );
     -- Ensure columns exist if table was created with old schema
     DO $$ 
@@ -229,7 +250,53 @@ async function startServer() {
     }
   });
 
-  // --- Project Routes ---
+  // --- Tag Routes ---
+  app.get('/api/tags', async (req, res) => {
+    if (isMockMode) return res.json(mockData.tags);
+    try {
+      const allTags = await db.select().from(tags);
+      res.json(allTags);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch tags' });
+    }
+  });
+
+  app.post('/api/tags', async (req, res) => {
+    const { name, color } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+
+    if (isMockMode) {
+      const newTag = {
+        id: mockData.tags.length > 0 ? Math.max(...mockData.tags.map(t => t.id)) + 1 : 1,
+        name,
+        color: color || '#3B82F6'
+      };
+      mockData.tags.push(newTag);
+      return res.status(201).json(newTag);
+    }
+
+    try {
+      const [newTag] = await db.insert(tags).values({ name, color }).returning();
+      res.status(201).json(newTag);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to create tag' });
+    }
+  });
+
+  app.delete('/api/tags/:id', async (req, res) => {
+    const { id } = req.params;
+    if (isMockMode) {
+      mockData.tags = mockData.tags.filter(t => t.id !== Number(id));
+      mockData.todoTags = mockData.todoTags.filter(tt => tt.tagId !== Number(id));
+      return res.json({ success: true });
+    }
+    try {
+      await db.delete(tags).where(eq(tags.id, Number(id)));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete tag' });
+    }
+  });
   app.get('/api/projects', async (req, res) => {
     if (isMockMode) return res.json(mockData.projects);
     try {
@@ -787,7 +854,13 @@ async function startServer() {
     try {
       const { projectId, assignedTo, goalId } = req.query;
       if (isMockMode) {
-        let filtered = mockData.todos;
+        let filtered = mockData.todos.map(t => ({
+          ...t,
+          tags: mockData.todoTags
+            .filter(tt => tt.todoId === t.id)
+            .map(tt => mockData.tags.find(tag => tag.id === tt.tagId))
+            .filter(Boolean)
+        }));
         if (projectId) filtered = filtered.filter(t => t.projectId === Number(projectId));
         if (assignedTo) filtered = filtered.filter(t => (t as any).assignedTo === Number(assignedTo));
         if (goalId) filtered = filtered.filter(t => (t as any).goalId === Number(goalId));
@@ -806,7 +879,30 @@ async function startServer() {
       }
       
       const allTodos = await query;
-      res.json(allTodos);
+      
+      // Fetch tags for these todos
+      const todoIds = allTodos.map(t => t.id);
+      if (todoIds.length > 0) {
+        const allTodoTags = await db.select({
+          todoId: todoTags.todoId,
+          tag: {
+            id: tags.id,
+            name: tags.name,
+            color: tags.color
+          }
+        })
+        .from(todoTags)
+        .innerJoin(tags, eq(todoTags.tagId, tags.id))
+        .where(sql`${todoTags.todoId} IN (${sql.join(todoIds, sql`, `)})`);
+
+        const todosWithTags = allTodos.map(t => ({
+          ...t,
+          tags: allTodoTags.filter(tt => tt.todoId === t.id).map(tt => tt.tag)
+        }));
+        return res.json(todosWithTags);
+      }
+
+      res.json(allTodos.map(t => ({ ...t, tags: [] })));
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       
@@ -828,7 +924,7 @@ async function startServer() {
   });
 
   app.post('/api/todos', async (req, res) => {
-    const { text, projectId, project_id, dueDate, due_date, priority, assignedTo, assigned_to, goalId, goal_id } = req.body;
+    const { text, projectId, project_id, dueDate, due_date, priority, assignedTo, assigned_to, goalId, goal_id, tagIds } = req.body;
     if (!text) return res.status(400).json({ error: 'Text is required' });
 
     const finalProjectId = projectId || project_id;
@@ -850,9 +946,15 @@ async function startServer() {
         priority: priority || 'medium',
         assignedTo: finalAssignedTo || null,
         goalId: finalGoalId || null,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        tags: (tagIds || []).map((tid: number) => mockData.tags.find(tag => tag.id === tid)).filter(Boolean)
       };
       mockData.todos.push(newTodo as any);
+      if (tagIds && Array.isArray(tagIds)) {
+        tagIds.forEach(tid => {
+          mockData.todoTags.push({ id: mockData.todoTags.length + 1, todoId: newTodo.id, tagId: tid });
+        });
+      }
       return res.status(201).json(newTodo);
     }
 
@@ -884,6 +986,13 @@ async function startServer() {
         assignedTo: finalAssignedTo || null,
         goalId: finalGoalId || null
       }).returning();
+
+      // Handle tags
+      if (tagIds && Array.isArray(tagIds)) {
+        await Promise.all(tagIds.map(tid => 
+          db.insert(todoTags).values({ todoId: newTodo.id, tagId: tid })
+        ));
+      }
       
       // Create associated Task Agent
       try {
@@ -912,7 +1021,7 @@ async function startServer() {
 
   app.patch('/api/todos/:id', async (req, res) => {
     const { id } = req.params;
-    const { text, completed, projectId, project_id, dueDate, due_date, priority, assignedTo, assigned_to, goalId, goal_id } = req.body;
+    const { text, completed, projectId, project_id, dueDate, due_date, priority, assignedTo, assigned_to, goalId, goal_id, tagIds } = req.body;
 
     if (isMockMode) {
       const index = mockData.todos.findIndex(t => t.id === Number(id));
@@ -926,6 +1035,14 @@ async function startServer() {
       if (priority !== undefined) updates.priority = priority;
       if (assignedTo !== undefined || assigned_to !== undefined) updates.assignedTo = assignedTo || assigned_to;
       if (goalId !== undefined || goal_id !== undefined) updates.goalId = goalId || goal_id;
+
+      if (tagIds !== undefined && Array.isArray(tagIds)) {
+        mockData.todoTags = mockData.todoTags.filter(tt => tt.todoId !== Number(id));
+        tagIds.forEach(tid => {
+          mockData.todoTags.push({ id: mockData.todoTags.length + 1, todoId: Number(id), tagId: tid });
+        });
+        updates.tags = tagIds.map(tid => mockData.tags.find(tag => tag.id === tid)).filter(Boolean);
+      }
 
       mockData.todos[index] = { ...mockData.todos[index], ...updates };
       return res.json(mockData.todos[index]);
@@ -941,18 +1058,40 @@ async function startServer() {
       if (assignedTo !== undefined || assigned_to !== undefined) updates.assignedTo = assignedTo || assigned_to;
       if (goalId !== undefined || goal_id !== undefined) updates.goalId = goalId || goal_id;
 
-      if (Object.keys(updates).length === 0) {
-        return res.status(400).json({ error: 'No fields to update' });
+      let updatedTodo = null;
+      if (Object.keys(updates).length > 0) {
+        const [result] = await db.update(todos)
+          .set(updates)
+          .where(eq(todos.id, Number(id)))
+          .returning();
+        updatedTodo = result;
+      } else {
+        const [result] = await db.select().from(todos).where(eq(todos.id, Number(id)));
+        updatedTodo = result;
       }
 
-      const [updatedTodo] = await db.update(todos)
-        .set(updates)
-        .where(eq(todos.id, Number(id)))
-        .returning();
-      
       if (!updatedTodo) return res.status(404).json({ error: 'Todo not found' });
-      
-      res.json(updatedTodo);
+
+      if (tagIds !== undefined && Array.isArray(tagIds)) {
+        await db.delete(todoTags).where(eq(todoTags.todoId, Number(id)));
+        if (tagIds.length > 0) {
+          await Promise.all(tagIds.map(tid => 
+            db.insert(todoTags).values({ todoId: Number(id), tagId: tid })
+          ));
+        }
+      }
+
+      // Fetch tags for the updated todo
+      const updatedTodoTags = await db.select({
+        id: tags.id,
+        name: tags.name,
+        color: tags.color
+      })
+      .from(todoTags)
+      .innerJoin(tags, eq(todoTags.tagId, tags.id))
+      .where(eq(todoTags.todoId, Number(id)));
+
+      res.json({ ...updatedTodo, tags: updatedTodoTags });
     } catch (error) {
       console.error('Failed to update todo:', error);
       res.status(500).json({ error: 'Failed to update todo' });
